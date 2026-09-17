@@ -74,18 +74,20 @@ col_data <- merge(data, POSTNR1, by = "postnr")
 
 #1.4
 library(ggplot2)
-plot_data <- aggregate(Indbyggertal ~ by_data, col_data, sum)
-table()
 
 plot_data <- col_data %>%
   group_by(by_data) %>%
   summarise(Indbyggertal = sum(Indbyggertal, na.rm = TRUE)) %>%
-  mutate(procent = Indbyggertal / sum(Indbyggertal) * 100)
+  mutate(procent = Indbyggertal / sum(Indbyggertal) * 100) %>%
+  mutate(by_data = factor(by_data, 
+                          levels = c("landsby", "lille by", "almindelig by", "større by", "storby")))
 
 ggplot(plot_data, aes(x = by_data, y = procent, fill = by_data)) +
   geom_col() +
+  scale_fill_brewer(palette = "Oranges") +
   labs(
-    x = "bykat",
+    title = "Andel af indbyggertal fordelt på bytype",
+    x = "Bykategori",
     y = "Andel af indbyggertal (%)",
     fill = "Bytype"
   ) +
