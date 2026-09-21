@@ -6,9 +6,23 @@ dfbilbase$age=2022-dfbilbase$year
 
 ## Exercise 1.3:
 # The code below creates a numeric variable holding the displacement
+library(dplyr)
+library(tidyverse)
 dfbilbase <- dfbilbase |> mutate(
   disp=str_extract(maketype," [0-9],[0-9]+ "),
   disp=as.numeric(str_replace(disp,",",".")))
+
+na_rows <- which(is.na(dfbilbase$disp))
+table_na <- dfbilbase[na_rows,]
+dfbilbase$maketype[na_rows] <- str_replace(table_na$maketype,"i","")
+
+dfbilbase <- dfbilbase |> mutate(
+  disp=str_extract(maketype," [0-9],[0-9]+ "),
+  disp=as.numeric(str_replace(disp,",",".")))
+
+# Fjerner i'et i capri, og ellers er der 2 tilbage
+na_rows <- which(is.na(dfbilbase$disp))
+table_na <- dfbilbase[na_rows,]
 
 # check the rows holding NA's in "disp", identify the cause, fix it with gsub
 # and then recreate the "disp" variable
