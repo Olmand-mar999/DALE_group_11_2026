@@ -5,6 +5,8 @@
 #forv1_meta$variables 
 #forv1_meta$values$INDIKATOR
 
+
+
 #forv1 <- dst_get_data("FORV1",
 #                      query = list(INDIKATOR = "*", Tid = "*"),
 #                      lang = "da", meta_data = forv1_meta)
