@@ -77,13 +77,15 @@ col_data <- merge(data, POSTNR1, by = "postnr")
 col_data_unik <- col_data %>%
   distinct(postnr, Indbyggertal, .keep_all = TRUE)
 
+# Siden der har været postnumre der går igen, vil by_data ikke længere passe.
+# Den fjernes
+col_data_unik <- col_data_unik[,1:17]
+
 # Samler summen af alle postnumre der hører til samme by
-# Skal fixes da by_data nu ikke længere stemmer
 col_data_unik <- col_data_unik %>%
   group_by(by) %>%
   summarise(
     Indbyggertal = sum(Indbyggertal, na.rm = TRUE),
-    by_data = first(by_data),
     .groups = "drop"
   )
 
@@ -100,6 +102,10 @@ col_data_unik <- col_data_unik %>%
       Indbyggertal >= 65000 ~ "storby"
     )
   )
+
+# Spørg Baum om det gør noget vi kun har by, indbyggertal og bystørrelse
+# som de eneste kolonner i endelig tabel
+# Giver vel ikke mening at inkludere resten
 
 sum(col_data_unik$Indbyggertal)
 
