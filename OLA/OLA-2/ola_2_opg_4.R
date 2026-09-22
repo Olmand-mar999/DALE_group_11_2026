@@ -162,13 +162,14 @@ Forbrugsgrupper[3,7]
   FUN = function(x) mean(as.numeric(x), na.rm = TRUE)
 )
 
-# -1 i koden betyder den ikke medtager perioderne. De indsættes igen.
+# -1 i koden betyder den ikke medtager tidsperioderne. De indsættes igen.
+# Den tager 2026 med, da den har den første måned inkluderet. Den fjernes
 År_data <- Forventninger$TID[seq(1, nrow(Forventninger), by = 12)]
 År_data <- År_data[1:År]
 
 År_forventninger$År <- År_data
 
-# Flyt Kvartal til første kolonne og fjern KV_grupper som kolonne
+# Flyt år til første kolonne og fjern år_grupper som kolonne
 År_forventninger <- År_forventninger[, c(
   "År",
   setdiff(names(År_forventninger), c("År", "År_grupper"))
