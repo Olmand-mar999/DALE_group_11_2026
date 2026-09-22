@@ -31,6 +31,7 @@ colnames(POSTNR1)[5] <- "Indbyggertal"
 steps <- seq(min(POSTNR1$Indbyggertal),max(POSTNR1$Indbyggertal),length.out = 6)
 steps
 
+
 POSTNR1 <- POSTNR1 %>%
   mutate(
     by_data = case_when(
@@ -72,10 +73,23 @@ data$alder <- (2024-data$opført)
 
 col_data <- merge(data, POSTNR1, by = "postnr")
 
+# Gør så der ikke er nogen postnumre der går igen.
+col_data_unik <- col_data %>%
+  distinct(postnr, Indbyggertal, .keep_all = TRUE)
+
+# Samler summen af alle postnumre der hører til samme by
+col_data_unik <- col_data_unik %>%
+  group_by(by) %>%
+  summarise(
+    Indbyggertal = sum(Indbyggertal, na.rm = TRUE),
+    by_data = first(by_data),
+    .groups = "drop"
+  )
+
 #1.4
 library(ggplot2)
 
-plot_data <- col_data %>%
+plot_data <- col_data_unik %>%
   group_by(by_data) %>%
   summarise(Indbyggertal = sum(Indbyggertal, na.rm = TRUE)) %>%
   mutate(procent = Indbyggertal / sum(Indbyggertal) * 100) %>%
@@ -92,3 +106,4 @@ ggplot(plot_data, aes(x = by_data, y = procent, fill = by_data)) +
     fill = "Bytype"
   ) +
   theme_minimal()
+
