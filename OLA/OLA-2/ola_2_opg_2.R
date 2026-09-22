@@ -5,8 +5,6 @@
 #forv1_meta$variables 
 #forv1_meta$values$INDIKATOR
 
-
-
 #forv1 <- dst_get_data("FORV1",
 #                      query = list(INDIKATOR = "*", Tid = "*"),
 #                      lang = "da", meta_data = forv1_meta)
@@ -88,21 +86,21 @@ FTI$Gennemsnit <- rowMeans(FTI[, -1], na.rm = TRUE)
 DI_FTI$Gennemsnit <- rowMeans(DI_FTI[, -1], na.rm = TRUE)
 
 #Hent husholdningernes forbrugsudgifter-----------------------------------------
-primeta <- dst_meta("NKHC1")
+primeta <- dst_meta("NKN1")
 primeta$variables
-primeta$values$FORBRUGSART
+primeta$values$TRANSAKT
 primeta$values$PRISENHED
 primeta$values$SÆSON
 primeta$values$Tid
 
 my_query2 <- list(
-  FORBRUGSART = "Husholdningernes forbrugsudgifter",
-  PRISENHED = "2020-priser, kædede værdier",
+  TRANSAKT = "P.31 Husholdningernes forbrugsudgifter",
+  PRISENHED = "2020-priser, kædede værdier, (mia. kr.)",
   SÆSON = "Sæsonkorrigeret",
   Tid = "*"
 )
 
-Forbrug <- dst_get_data("NKHC1", query = my_query2)
+Forbrug <- dst_get_data("NKN1", query = my_query2)
 Forbrug <- Forbrug[,4:5]
 colnames(Forbrug) <- c("Kvartal","Forbrug")
 
@@ -160,33 +158,40 @@ F4_DI = DI_FTI[,4]
 F9_DI = DI_FTI[,5]
 F10_DI = DI_FTI[,6]
 
-DI_FTI_multi <- lm(Forbrug ~ F2_DI + F4_DI + F9_DI + F9_DI,
-                   data = DI_FTI_col)
-DI_FTI_multi_summary <- summary(DI_FTI_multi)
-DI_FTI_multi_summary
+#DI_FTI_multi <- lm(Forbrug ~ F2_DI + F4_DI + F9_DI + F9_DI,
+#                  data = DI_FTI_col)
+#DI_FTI_multi_summary <- summary(DI_FTI_multi)
+#DI_FTI_multi_summary
 
-colnames(FTI_col)
-F2_FTI = FTI[,3]
-F3_FTI = FTI[,4]
-F4_FTI = FTI[,5]
-F5_FTI = FTI[,6]
-F9_FTI = FTI[,7]
+#colnames(FTI_col)
+#F2_FTI = FTI[,3]
+#F3_FTI = FTI[,4]
+#F4_FTI = FTI[,5]
+#F5_FTI = FTI[,6]
+#F9_FTI = FTI[,7]
 
-FTI_multi <- lm(Forbrug ~ F2_FTI + F3_FTI + F4_FTI + F5_FTI + F9_FTI,
-                data = FTI_col)
-FTI_multi_summary <- summary(FTI_multi)
-FTI_multi_summary
+#FTI_multi <- lm(Forbrug ~ F2_FTI + F3_FTI + F4_FTI + F5_FTI + F9_FTI,
+#                   data = FTI_col)
+#FTI_multi_summary <- summary(FTI_multi)
+#FTI_multi_summary
 
 
-DI_FTI_summary$r.squared
-DI_FTI_multi_summary$r.squared
-FTI_summary$r.squared
-FTI_multi_summary$r.squared
+#DI_FTI_summary$r.squared
+#DI_FTI_multi_summary$r.squared
+#FTI_summary$r.squared
+#FTI_multi_summary$r.squared
 
 # Predict-----------------------------------------------------------------------
 pred <- predict(FTI_model)
 pred
 
+library(dplyr)
 
-
-
+data <- Forbrug %>%
+  arrange(Kvartal) %>%   # sørg for at data er sorteret kronologisk efter tid
+  mutate(
+    gruppe = ifelse(Forbrug >= 0, "OP", "NED")
+  )
+table(data$gruppe)
+min(Forbrug$Forbrug)
+max(Forbrug$Forbrug)
