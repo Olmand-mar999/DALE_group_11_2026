@@ -78,6 +78,7 @@ col_data_unik <- col_data %>%
   distinct(postnr, Indbyggertal, .keep_all = TRUE)
 
 # Samler summen af alle postnumre der hører til samme by
+# Skal fixes da by_data nu ikke længere stemmer
 col_data_unik <- col_data_unik %>%
   group_by(by) %>%
   summarise(
@@ -85,6 +86,9 @@ col_data_unik <- col_data_unik %>%
     by_data = first(by_data),
     .groups = "drop"
   )
+
+
+
 
 #1.4
 library(ggplot2)
