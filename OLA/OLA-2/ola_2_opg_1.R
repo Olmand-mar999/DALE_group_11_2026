@@ -75,7 +75,7 @@ col_data <- merge(data, POSTNR1, by = "postnr")
 
 # Gør så der ikke er nogen postnumre der går igen.
 col_data_unik <- col_data %>%
-  distinct(postnr, Indbyggertal, .keep_all = TRUE)
+  distinct(postnr, .keep_all = TRUE)
 
 # Siden der har været postnumre der går igen, vil by_data ikke længere passe.
 # Den fjernes
