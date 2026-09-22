@@ -87,8 +87,21 @@ col_data_unik <- col_data_unik %>%
     .groups = "drop"
   )
 
+# by_data fjernes og tilføjes derfor igen så de passer
+col_data_unik <- col_data_unik[,1:2]
 
+col_data_unik <- col_data_unik %>%
+  mutate(
+    by_data = case_when(
+      Indbyggertal < 7000 ~ "landsby",
+      Indbyggertal < 12000 ~ "lille by",
+      Indbyggertal < 35000 ~ "almindelig by",
+      Indbyggertal < 65000 ~ "større by",
+      Indbyggertal >= 65000 ~ "storby"
+    )
+  )
 
+sum(col_data_unik$Indbyggertal)
 
 #1.4
 library(ggplot2)
