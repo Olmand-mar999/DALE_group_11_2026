@@ -10,3 +10,4 @@ summary(glmtest)
 
 glmtest_ny <- glm(default~student+balance, family="binomial", data=Default)
 summary(glmtest_ny)
+
