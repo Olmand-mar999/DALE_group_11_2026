@@ -185,6 +185,10 @@ F10_DI = DI_FTI[,6]
 pred <- predict(FTI_model)
 pred
 
+Ny_data <- 15
+predict(pred, newdata = ny_data)
+
+
 library(dplyr)
 
 data <- Forbrug %>%
