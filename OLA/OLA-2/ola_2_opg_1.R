@@ -1,6 +1,4 @@
 library(dkstat)
-library(dplyr)
-library(tidyr)
 
 #1.1
 alltable = dkstat::dst_get_tables()
