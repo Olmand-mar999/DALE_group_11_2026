@@ -85,8 +85,7 @@ col_data_unik <- col_data_unik[,1:17]
 col_data_unik <- col_data_unik %>%
   group_by(by) %>%
   summarise(
-    Indbyggertal = sum(Indbyggertal, na.rm = TRUE),
-    .groups = "drop"
+    Indbyggertal = sum(Indbyggertal, na.rm = TRUE)
   )
 
 # by_data fjernes og tilføjes derfor igen så de passer
