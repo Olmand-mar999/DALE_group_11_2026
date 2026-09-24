@@ -1,3 +1,10 @@
+## Hvilke år har data for alle måneder
+#maanedlig_check <- aggregate(!is.na(nettotal) ~ format(tid, "%Y"),
+#                             data = forv1[forv1$indikator == "F1 Forbrugertillidsindikatoren", ],
+#                             FUN = sum)
+#names(maanedlig_check) <- c("aar", "antal_maaneder_med_data")
+#maanedlig_check
+
 # Opg. 4.1 ----
 
 library(dkstat)
