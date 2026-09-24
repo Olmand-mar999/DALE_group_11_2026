@@ -151,6 +151,40 @@ max_val <- max(Forbrugsgrupper[3,4:14])
 which(Forbrugsgrupper[3,]==max_val)
 Forbrugsgrupper[3,7]
 
+# Værdi (2023 - værdi 2020) / værdi 2020 * 100
+
+# Skal være numeric da class ellers er data.frame
+Forbrug_stigning <- data.frame(
+  Forbrugsgruppe = colnames(Forbrugsgrupper)[4:ncol(Forbrugsgrupper)],
+  Forbrug_stigning = as.numeric(
+    (Forbrugsgrupper[4, 4:ncol(Forbrugsgrupper)] -
+       Forbrugsgrupper[1, 4:ncol(Forbrugsgrupper)]) /
+      Forbrugsgrupper[1, 4:ncol(Forbrugsgrupper)] * 100),
+  Penge_stigning = as.numeric(Forbrugsgrupper[4, 4:ncol(Forbrugsgrupper)] -
+                                Forbrugsgrupper[1, 4:ncol(Forbrugsgrupper)])
+)
+
+ggplot(Forbrug_stigning, 
+       aes(x = reorder(Forbrugsgruppe, Forbrug_stigning),
+           y = Forbrug_stigning)) +
+  geom_col(fill = "steelblue") +
+  geom_text(
+    aes(label = paste0(round(Forbrug_stigning, 1), "%")),
+    hjust = -0.1,
+    size = 3
+  ) +
+  coord_flip() +
+  scale_y_continuous(
+    breaks = seq(0, 40, by = 10),
+    limits = c(0, 45)
+  ) +
+  labs(
+    title = "Procentvis stigning i forbrug 2020-2023",
+    x = NULL,
+    y = "Stigning (%)"
+  ) +
+  theme_minimal()
+
 
 # Opg 4.4
 # Antal komplette kvartaler. floor rounds down to lowest integer
