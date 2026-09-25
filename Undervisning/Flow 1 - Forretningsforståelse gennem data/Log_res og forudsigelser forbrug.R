@@ -168,6 +168,7 @@ mtext(
 
 DI_FTI_col$Dummy <- ifelse(Forbrug$Forbrug > 0, 1, 0)
 log_model <- glm(Dummy ~ Gennemsnit, family = "binomial", data = DI_FTI_col)
+DI_FTI_col$log_pred <- ifelse(predict(log_model) > 0, 1, 0)
 
 new_row <- nrow(FTI_col)*3 + 1
 DI_FTI_sidst <- Forventninger[new_row:nrow(Forventninger),c(1,3,5,7,11)]
@@ -177,3 +178,46 @@ DI_FTI_pred <- predict(log_model, newdata = DI_FTI_sidst)
 DI_FTI_pred
 ifelse(DI_FTI_pred > 0.5, "OP", "NED")
 
+# Hvor ofte har den logistiske regression ret
+validation <- ifelse(DI_FTI_col$Dummy == DI_FTI_col$log_pred, "Rigtig", "Forkert")
+validation_table <- table(validation)
+validation_table
+validation_table[2]/sum(validation_table)
+
+library(caret)
+conf_matrix <- confusionMatrix(as.factor(DI_FTI_col$Dummy), as.factor(DI_FTI_col$log_pred))
+conf_matrix
+log_pred
+DI_FTI_col$Dummy
+
+for (i in 1:12){
+  data1 <- Forventninger %>%
+    arrange(Forventninger$TID) %>%   # sørg for at data er sorteret kronologisk efter tid
+    mutate(
+      gruppe = factor(ifelse(Forventninger[,(i+2)] >= 0, "OP", "NED"),levels = c("NED", "OP"))
+    )
+  table(data1$gruppe)
+  data_val <- table(data1$gruppe)
+  data_val <- round(prop.table(data_val) * 100, 1)
+  name = colnames(Forventninger[i+2])
+  
+  bp <- barplot(
+    data_val,
+    ylim = c(0, 100),
+    ylab = "Procent",
+    xlab = "",
+    main = paste0("Udvikling i spørgsmålet", "\n", name),
+    names.arg = c("Negativ", "Positiv"),
+    las = 1,
+    col = c("#D55E00", "#F4A261"),
+    cex.main = 0.9
+  )
+  abline(0,0)
+  
+  mtext(
+    "Kilde: Danmarks Statistik, FORV1",
+    side = 1,
+    line = 4,
+    adj = 0
+  )
+}
