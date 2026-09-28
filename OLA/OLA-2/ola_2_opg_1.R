@@ -1,4 +1,6 @@
 library(dkstat)
+library(dplyr)
+library(tidyr)
 
 #1.1
 alltable = dkstat::dst_get_tables()
@@ -11,7 +13,6 @@ regmeta$values$ALDER
 regmeta$values$CIVILTILSTAND
 regmeta$values$Tid
 
-# * betyder alle muligheder. Kan ikke lide civiltilstand af en eller anden grund.
 my_query <- list(
   PNR20 = "*",
   KØN = "I alt",
@@ -26,23 +27,16 @@ colnames(POSTNR1)[1] <- "postnr"
 colnames(POSTNR1)[5] <- "Indbyggertal"
 
 #1.2
-steps <- seq(min(POSTNR1$Indbyggertal),max(POSTNR1$Indbyggertal),length.out = 6)
-steps
 
 
-POSTNR1 <- POSTNR1 %>%
-  mutate(
-    by_data = case_when(
-      Indbyggertal < 7000 ~ "landsby",
-      Indbyggertal < 12000 ~ "lille by",
-      Indbyggertal < 35000 ~ "almindelig by",
-      Indbyggertal < 65000 ~ "større by",
-      Indbyggertal >= 65000 ~ "storby"
-    )
-  )
+POSTNR1$bycat <- cut(POSTNR1$Indbyggertal,
+                     breaks = c(0, 1000, 5000, 20000, 100000, Inf),
+                     labels = c("landsby", "lille by", "almindelig by", "større by", "storby"),
+                     right  = FALSE)
 
 #1.3
-data <- read.csv("https://raw.githubusercontent.com/Olmand-mar999/DALE_group_11_2026/main/Dataset/boligsiden.csv",header = T)
+data <- read.csv("https://raw.githubusercontent.com/Olmand-mar999/DALE_group_11_2026/main/Dataset/boligsiden.csv",
+                 encoding = "UTF-8")
 data <- data[2:nrow(data),]
 for (i in which(is.na(data$liggetid)))
   data$liggetid[i] <- "0 dag"
@@ -72,51 +66,64 @@ data$alder <- (2024-data$opført)
 col_data <- merge(data, POSTNR1, by = "postnr")
 
 # Gør så der ikke er nogen postnumre der går igen.
-col_data_unik <- col_data %>%
-  distinct(postnr, .keep_all = TRUE)
+col_data_unik <- col_data[!duplicated(col_data$postnr), ]
 
 # Siden der har været postnumre der går igen, vil by_data ikke længere passe.
 # Den fjernes
 col_data_unik <- col_data_unik[,1:17]
 
+# Finder alle de bynavne der går igen flere gange
+antal_byer <- table(col_data_unik$by)
+gentagne_byer <- names(antal_byer[antal_byer > 1])
+
+# Viser pænt med postnumre og alfabetisk hvilke byer der går igen
+resultat <- col_data_unik[col_data_unik$by %in% gentagne_byer, c("by", "postnr")]
+resultat <- resultat[order(resultat$by), ]
+resultat
+#jerslev, noerre, nykoebing, soender, store, viby
+unik_liste <- c("jerslev", "noerre", "nykoebing", "soender", "store", "viby")
+# Det er de byer hvor der findes flere byer med det samme navn
+by_summer <- col_data_unik[!col_data_unik$by %in% unik_liste,]
+by_ikke_summer <- col_data_unik[col_data_unik$by %in% unik_liste,]
+by_ikke_summer
+
 # Samler summen af alle postnumre der hører til samme by
-col_data_unik <- col_data_unik %>%
-  group_by(by) %>%
-  summarise(
-    Indbyggertal = sum(Indbyggertal, na.rm = TRUE)
-  )
+by_summer <- aggregate(
+  Indbyggertal ~ by,
+  data = by_summer,
+  FUN = sum
+)
 
-# by_data fjernes og tilføjes derfor igen så de passer
-col_data_unik <- col_data_unik[,1:2]
+colnames(by_ikke_summer)
+col_data_ny <- rbind(by_summer, by_ikke_summer[,c(5,17)])
 
-col_data_unik <- col_data_unik %>%
-  mutate(
-    by_data = case_when(
-      Indbyggertal < 7000 ~ "landsby",
-      Indbyggertal < 12000 ~ "lille by",
-      Indbyggertal < 35000 ~ "almindelig by",
-      Indbyggertal < 65000 ~ "større by",
-      Indbyggertal >= 65000 ~ "storby"
-    )
-  )
+# by_data tilføjes igen. Den blev fjernet i processen med at summere bynavne
+col_data_ny$bycat <- cut(col_data_ny$Indbyggertal,
+                         breaks = c(0, 1000, 5000, 20000, 100000, Inf),
+                         labels = c("landsby", "lille by", "almindelig by", "større by", "storby"),
+                         right  = FALSE)
 
 # Spørg Baum om det gør noget vi kun har by, indbyggertal og bystørrelse
 # som de eneste kolonner i endelig tabel
 # Giver vel ikke mening at inkludere resten
 
-sum(col_data_unik$Indbyggertal)
+sum(col_data_ny$Indbyggertal)
 
 #1.4
 library(ggplot2)
 
-plot_data <- col_data_unik %>%
-  group_by(by_data) %>%
+plot_data <- col_data_ny %>%
+  group_by(bycat) %>%
   summarise(Indbyggertal = sum(Indbyggertal, na.rm = TRUE)) %>%
   mutate(procent = Indbyggertal / sum(Indbyggertal) * 100) %>%
-  mutate(by_data = factor(by_data, 
-                          levels = c("landsby", "lille by", "almindelig by", "større by", "storby")))
+  mutate(bycat = factor(bycat, 
+                        levels = c("landsby", 
+                                   "lille by", 
+                                   "almindelig by", 
+                                   "større by", 
+                                   "storby")))
 
-ggplot(plot_data, aes(x = by_data, y = procent, fill = by_data)) +
+ggplot(plot_data, aes(x = bycat, y = procent, fill = bycat)) +
   geom_col() +
   scale_fill_brewer(palette = "Oranges") +
   labs(
