@@ -60,13 +60,17 @@ corrplot(cordfc,method = c("color"), addCoef.col = 'black')
 # so row 2 must be:
 # [2,]    2    4    6    8   10   12   14   16   18    20
 
-lilleTabel=matrix()
+lilleTabel <- matrix(nrow = 10, ncol = 10,
+                     dimnames = list(1:10, 1:10))
 
-for (i in (1:1)) {
-  for(i in (1:1)) {
-    lilleTabel[]=1*1
+for (i in 1:10) {
+  for (j in 1:10) {
+    lilleTabel[i, j] <- i * j
   }
 }
+
+lilleTabel
+lilleTabel[2, ]
 
 
 ## Exercise 2.2:
