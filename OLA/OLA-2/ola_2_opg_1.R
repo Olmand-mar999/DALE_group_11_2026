@@ -10,7 +10,6 @@ regmeta$variables
 regmeta$values$PNR20
 regmeta$values$KØN
 regmeta$values$ALDER
-regmeta$values$CIVILTILSTAND
 regmeta$values$Tid
 
 my_query <- list(
