@@ -131,21 +131,32 @@ my_query <- list(
 
 POSTNR1 <- dst_get_data("POSTNR1", query = my_query)
 POSTNR1 <- POSTNR1[2:nrow(POSTNR1),]
+
+# Gemmer kommunerne i en ny kolonne
 POSTNR1$by_kommune <- substr(POSTNR1$PNR20,11,nchar(POSTNR1$PNR20))
+
+# Gemmer kun selve postnummeret
 POSTNR1$PNR20 <- substr(POSTNR1$PNR20,1,4)
+
+# Omnavngiver kolonnerne så de kan merges med boligdataen
 colnames(POSTNR1)[1] <- "postnr"
 colnames(POSTNR1)[5] <- "Ant_indbyg"
 
+# Merger med postnumrene
 new_col <- merge(na_rows, POSTNR1, by = "postnr")
 new_col$Indbyggertal <- new_col$Ant_indbyg
 
+# Tilføjer bycat til datasættet
 new_col$bycat <- cut(new_col$Indbyggertal,
                      breaks = c(0, 1000, 5000, 20000, 100000, Inf),
                      labels = c("landsby", "lille by", "almindelig by", "større by", "storby"),
                      right  = FALSE)
 
+# Binder de 2 datasæt fra boligdataen sammen til et datasæt
 all_data <- rbind(col_data_na_free[,c("by", "Indbyggertal", "bycat", "kvmpris")], 
                   new_col[,c("by", "Indbyggertal", "bycat", "kvmpris")])
+
+# Tjekker at der ikke er nogen NA værdier. Skal give 0
 which(is.na(all_data))
 
 
