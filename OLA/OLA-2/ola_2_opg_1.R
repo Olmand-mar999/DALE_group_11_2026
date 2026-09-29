@@ -5,37 +5,63 @@ library(tidyr)
 #1.1
 alltable = dkstat::dst_get_tables()
 
-regmeta <- dst_meta("POSTNR1")
+regmeta <- dst_meta("BY3")
 regmeta$variables
-regmeta$values$PNR20
-regmeta$values$KØN
-regmeta$values$ALDER
+regmeta$values$BYER
+regmeta$values$FOLKARTAET
 regmeta$values$Tid
 
 my_query <- list(
-  PNR20 = "*",
-  KØN = "I alt",
-  ALDER = "Alder i alt",
+  BYER = "*",
+  FOLKARTAET = "Folketal",
   TID = "2026"
 )
 
-POSTNR1 <- dst_get_data("POSTNR1", query = my_query)
-POSTNR1 <- POSTNR1[2:nrow(POSTNR1),]
-POSTNR1$PNR20 <- substr(POSTNR1$PNR20,1,4)
-colnames(POSTNR1)[1] <- "postnr"
-colnames(POSTNR1)[5] <- "Indbyggertal"
+# Hent data
+BY3 <- dst_get_data("BY3", query = my_query)
+
+# Sætter value til indbyggertal
+colnames(BY3)[colnames(BY3) == "value"] <- "Indbyggertal"
+
+# Fjern rækker der ikke har et indbyggertal
+BY3 <- BY3[BY3$Indbyggertal != 0,]
+
+# Fjern rækker der ikke er bynavne
+BY3 <- BY3[!grepl("Uden fast bopæl", BY3$BYER),]
+BY3 <- BY3[!grepl("Landdistrikter", BY3$BYER),]
+
+sub(" \\(.*\\)", "", BY3$BYER)
+
+# BY3 renses for æ,ø,å og store bogstaver
+clean_function <- function(x) {
+  x <- tolower(x)                   # Laver store bogstaver til små
+  x <- gsub(" \\(.*\\)", "", x)     # Fjerner alt i parentes
+  x <- gsub("[0-9]","", x)          # Fjerner tal
+  x <- gsub("æ", "ae", x)
+  x <- gsub("å", "aa", x)
+  x <- gsub("ø", "oe", x)
+  x <- sub("-","", x)
+  trimws(x)
+}
+
+BY3$BYER <- clean_function(BY3$BYER)
+
+# Der er byer der optræder flere gange. De samles med et samlet indbyggertal
+BY3 <- aggregate(Indbyggertal ~ BYER, data = BY3, FUN = sum)
+sum(duplicated(BY3$BYER)) # Test om det virkede. Skal give 0
 
 #1.2
 
+# Inspiration fra danmarks statistik BY2 til at vælge inddelingen
+dst_meta("BY2")$values$BYST
 
-POSTNR1$bycat <- cut(POSTNR1$Indbyggertal,
-                     breaks = c(0, 1000, 5000, 20000, 100000, Inf),
-                     labels = c("landsby", "lille by", "almindelig by", "større by", "storby"),
-                     right  = FALSE)
+BY3$bycat <- cut(BY3$Indbyggertal,
+                 breaks = c(0, 1000, 5000, 20000, 100000, Inf),
+                 labels = c("landsby", "lille by", "almindelig by", "større by", "storby"),
+                 right  = FALSE)
 
 #1.3
-data <- read.csv("https://raw.githubusercontent.com/Olmand-mar999/DALE_group_11_2026/main/Dataset/boligsiden.csv",
-                 encoding = "UTF-8")
+data <- read.csv("boligsiden.csv",header = T)
 data <- data[2:nrow(data),]
 for (i in which(is.na(data$liggetid)))
   data$liggetid[i] <- "0 dag"
@@ -60,76 +86,84 @@ data$mdudg <- sub("\\.", "", data$mdudg)
 data$mdudg <- as.numeric(data$mdudg)
 
 # Lav opførselsår om til alder på bygning
-data$alder <- (2024-data$opført)
+data$alder <- (2026-data$opført)
 
-col_data <- merge(data, POSTNR1, by = "postnr")
+# Der er 3 rækker der har indsat postnummer som bynavn. Det rettes
+# Det er rækkerne 273, 1749, 2040
+which(data$postnr < 100)
+data$postnr[c(273, 1749, 2040)] <- data$by[c(273, 1749, 2040)]
+data$by[c(273, 1749, 2040)] <- c("moeldrup", "kibaek", "hilleroed")
+data$postnr[2040]
 
-# Gør så der ikke er nogen postnumre der går igen.
-col_data_unik <- col_data[!duplicated(col_data$postnr), ]
+# BYER i vores BY3 data omnavngives til by så merge fungerer
+colnames(BY3)[colnames(BY3) == "BYER"] <- "by"
 
-# Siden der har været postnumre der går igen, vil by_data ikke længere passe.
-# Den fjernes
-col_data_unik <- col_data_unik[,1:17]
+# Merger vores data
+col_data <- merge(data, BY3, by = "by", all.x = T)
 
-# Finder alle de bynavne der går igen flere gange
-antal_byer <- table(col_data_unik$by)
-gentagne_byer <- names(antal_byer[antal_byer > 1])
+# Gemmer NA rækker i sit eget og fjerner duplicates
+na_rows <- col_data[which(is.na(col_data$Indbyggertal)),]
 
-# Viser pænt med postnumre og alfabetisk hvilke byer der går igen
-resultat <- col_data_unik[col_data_unik$by %in% gentagne_byer, c("by", "postnr")]
-resultat <- resultat[order(resultat$by), ]
-resultat
-#jerslev, noerre, nykoebing, soender, store, viby
-unik_liste <- c("jerslev", "noerre", "nykoebing", "soender", "store", "viby")
-# Det er de byer hvor der findes flere byer med det samme navn
-by_summer <- col_data_unik[!col_data_unik$by %in% unik_liste,]
-by_ikke_summer <- col_data_unik[col_data_unik$by %in% unik_liste,]
-by_ikke_summer
+# Fjerner NA og duplicates fra vores plot data
+col_data_na_free <- na.omit(col_data)
 
-# Samler summen af alle postnumre der hører til samme by
-by_summer <- aggregate(
-  Indbyggertal ~ by,
-  data = by_summer,
-  FUN = sum
+# Der er markant forskel på den gennemsnitlige kvadratmeter pris vi mangler data på
+# og den data vi har data på.
+mean(col_data_na_free$kvmpris)
+mean(na_rows$kvmpris)
+
+# Vi er derfor nødt til at indbyggertallet på de byer vi ikke har data på
+# Derfor henter vi postnummer data fra danmarks statistik og merger med det.
+regmeta <- dst_meta("POSTNR1")
+regmeta$variables
+regmeta$values$PNR20
+regmeta$values$KØN
+regmeta$values$ALDER
+regmeta$values$CIVILTILSTAND
+regmeta$values$Tid
+
+my_query <- list(
+  PNR20 = "*",
+  KØN = "I alt",
+  ALDER = "Alder i alt",
+  TID = "2026"
 )
 
-colnames(by_ikke_summer)
-col_data_ny <- rbind(by_summer, by_ikke_summer[,c(5,17)])
+POSTNR1 <- dst_get_data("POSTNR1", query = my_query)
+POSTNR1 <- POSTNR1[2:nrow(POSTNR1),]
+POSTNR1$by_kommune <- substr(POSTNR1$PNR20,11,nchar(POSTNR1$PNR20))
+POSTNR1$PNR20 <- substr(POSTNR1$PNR20,1,4)
+colnames(POSTNR1)[1] <- "postnr"
+colnames(POSTNR1)[5] <- "Ant_indbyg"
 
-# by_data tilføjes igen. Den blev fjernet i processen med at summere bynavne
-col_data_ny$bycat <- cut(col_data_ny$Indbyggertal,
-                         breaks = c(0, 1000, 5000, 20000, 100000, Inf),
-                         labels = c("landsby", "lille by", "almindelig by", "større by", "storby"),
-                         right  = FALSE)
+new_col <- merge(na_rows, POSTNR1, by = "postnr")
+new_col$Indbyggertal <- new_col$Ant_indbyg
 
-# Spørg Baum om det gør noget vi kun har by, indbyggertal og bystørrelse
-# som de eneste kolonner i endelig tabel
-# Giver vel ikke mening at inkludere resten
+new_col$bycat <- cut(new_col$Indbyggertal,
+                     breaks = c(0, 1000, 5000, 20000, 100000, Inf),
+                     labels = c("landsby", "lille by", "almindelig by", "større by", "storby"),
+                     right  = FALSE)
 
-sum(col_data_ny$Indbyggertal)
+all_data <- rbind(col_data_na_free[,c("by", "Indbyggertal", "bycat", "kvmpris")], 
+                  new_col[,c("by", "Indbyggertal", "bycat", "kvmpris")])
+which(is.na(all_data))
 
-#1.4
+
 library(ggplot2)
 
-plot_data <- col_data_ny %>%
-  group_by(bycat) %>%
-  summarise(Indbyggertal = sum(Indbyggertal, na.rm = TRUE)) %>%
-  mutate(procent = Indbyggertal / sum(Indbyggertal) * 100) %>%
-  mutate(bycat = factor(bycat, 
-                        levels = c("landsby", 
-                                   "lille by", 
-                                   "almindelig by", 
-                                   "større by", 
-                                   "storby")))
+plot_df <- aggregate(kvmpris ~ bycat, data = all_data, FUN = mean)
+plot_df$antal <- aggregate(kvmpris ~ bycat, data = all_data, FUN = length)$kvmpris
+plot_df$label <- paste0(plot_df$bycat, "\n(n = ", plot_df$antal, ")")
 
-ggplot(plot_data, aes(x = bycat, y = procent, fill = bycat)) +
-  geom_col() +
-  scale_fill_brewer(palette = "Oranges") +
-  labs(
-    title = "Andel af indbyggertal fordelt på bytype",
-    x = "Bykategori",
-    y = "Andel af indbyggertal (%)",
-    fill = "Bytype"
-  ) +
-  theme_minimal()
-
+ggplot(plot_df, aes(x = reorder(label, kvmpris), y = kvmpris)) +
+  geom_col(fill = "orange", width = 0.7) +
+  geom_text(aes(label = format(round(kvmpris), big.mark = ".", decimal.mark = ",")),
+            vjust = -0.5, size = 3.5) +
+  scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ","),
+                     expand = expansion(mult = c(0, 0.08))) +
+  labs(title = "Storby har den højeste pris pr kvm i kr",
+       subtitle = "Boliger til salg, byer kategoriseret efter DST's byområder 2026",
+       x = "Bykategori", y = "Kr. pr. m²",
+       caption = "Kilde: Boligsiden og Danmarks Statistik (BY3)") +
+  theme_minimal() +
+  theme(panel.grid.major.x = element_blank())
