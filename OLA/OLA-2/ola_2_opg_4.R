@@ -1,116 +1,55 @@
-## Hvilke år har data for alle måneder
-#maanedlig_check <- aggregate(!is.na(nettotal) ~ format(tid, "%Y"),
-#                             data = forv1[forv1$indikator == "F1 Forbrugertillidsindikatoren", ],
-#                             FUN = sum)
-#names(maanedlig_check) <- c("aar", "antal_maaneder_med_data")
-#maanedlig_check
-
 # Opg. 4.1 ----
 
+# Pakker
 library(dkstat)
 library(tidyr)
-
-#Hent Forbrugerforventninger data
-formeta <- dst_meta("FORV1")
-formeta$variables
-formeta$values$INDIKATOR
-formeta$values$Tid
-
-my_query <- list(
-  INDIKATOR = "*",
-  Tid = "*"
-)
-
-Forventninger <- dst_get_data("FORV1", query = my_query)
-
-Forventninger <- pivot_wider(Forventninger, names_from = INDIKATOR, 
-                             values_from = value)
-
-# Gem data fra 2000 og frem
-data_cut <- which(Forventninger[,1]=="1996-01-01 CET")
-Forventninger <- Forventninger[data_cut:nrow(Forventninger),]
-
-# Feature engineering, kvartaler
-
-# Antal komplette kvartaler. floor rounds down to lowest integer
-kvartaler <- floor(nrow(Forventninger) / 3)
-
-# Gruppér hver 3. måned. Giver grupper der slutter med værdien 106.
-KV_grupper <- rep(1:kvartaler, each = 3)
-
-# Fjern overskydende måneder der ikke indgår i et fuldt kvartal
-KV_forventninger <- Forventninger[1:(kvartaler * 3), ]
-
-# -1 i koden betyder ikke medtag 1. kolonne
-KV_forventninger <- aggregate(
-  KV_forventninger[, -1],
-  by = list(KV_grupper = KV_grupper),
-  FUN = function(x) mean(as.numeric(x), na.rm = TRUE)
-)
-
-# -1 i koden betyder den ikke medtager perioderne. De indsættes igen.
-KV_måneder <- Forventninger$TID[seq(3, nrow(Forventninger), by = 3)]
-KV_forventninger$Kvartal <- KV_måneder
-
-# Flyt Kvartal til første kolonne og fjern KV_grupper som kolonne
-KV_forventninger <- KV_forventninger[, c(
-  "Kvartal",
-  setdiff(names(KV_forventninger), c("Kvartal", "KV_grupper"))
-)]
-
-# Lav plot af tillidsindikatoren
 library(ggplot2)
 
-ggplot(
-  KV_forventninger,
-  aes(
-    x = Kvartal,
-    y = `F1 Forbrugertillidsindikatoren`
-  )
-) +
-  geom_line(
-    color = "#F39C12",
-    linewidth = 0.55
-  ) +
-  geom_hline(
-    yintercept = 0,
-    color = "black",
-    linetype = "dashed",
-    linewidth = 0.4
-  ) +
-  scale_x_datetime(
-    limits = as.POSIXct(c("1996-01-01", "2026-12-31")),
-    date_breaks = "2 years",
-    date_labels = "%Y",
-    expand = c(0, 0)
-  ) +
-  scale_y_continuous(
-    breaks = c(-30, -20, -10, 0, 10),
-    limits = c(-35, 15)
-  ) +
-  labs(
-    title = "DST's forbrugertillidsindikator",
-    x = "År",
-    y = "Forbrugertillidsindikator"
-  ) +
+# Hent data fra DST
+Forventninger <- dst_get_data("FORV1", query = list(INDIKATOR = "*", Tid = "*"))
+
+# Datokollone laves (kan muligvis kigge ind i om Tid bare skal reformateres)
+Forventninger$Dato <- as.Date(Forventninger$TID, tz = "Europe/Copenhagen")
+
+# Giver 1996 mening?
+maanedlig_check <- aggregate(           # Beregn en værdi pr. gruppe (her: pr. år)
+  !is.na(value) ~ format(TID, "%Y"),    # Tæl rækker hvor value IKKE er NA, grupperet efter årstal
+  data = Forventninger[Forventninger$INDIKATOR == "F1 Forbrugertillidsindikatoren", ],  # Brug kun rækker for F1
+  FUN = sum                             # Læg TRUE-værdierne sammen = antal måneder med data
+)
+names(maanedlig_check) <- c("aar", "antal_maaneder_med_data")  # Giv kolonnerne læsbare navne
+maanedlig_check                         # Vis resultatet: et fuldt år har 12 måneder med data
+
+# Behold kun rækker fra og med 1. januar 1996
+Forventninger <- Forventninger[Forventninger$Dato >= as.Date("1996-01-01"), ]
+
+# Placér hver måned i sit kvartal. Kvartalet får datoen på kvartalets første dag
+Forventninger$Kvartal <- as.Date(cut(Forventninger$Dato, "quarter"))
+
+# Beregn gennemsnittet af value for hver kombination af kvartal og indikator
+KV_lang <- aggregate(value ~ Kvartal + INDIKATOR, data = Forventninger, FUN = mean)
+
+# Gør tabellen "bred": én række pr. kvartal og én kolonne pr. indikator
+KV <- reshape(KV_lang, idvar = "Kvartal", timevar = "INDIKATOR", direction = "wide")
+
+# # reshape sætter "value." foran alle kolonnenavne, så det fjernes her
+names(KV) <- sub("^value\\.", "", names(KV))
+
+# Sortér rækkerne så kvartalerne står i kronologisk rækkefølge
+KV <- KV[order(KV$Kvartal), ]
+
+# Nulstil rækkenumrene
+rownames(KV) <- NULL
+
+# PLot
+ggplot(KV, aes(x = Kvartal, y = `F1 Forbrugertillidsindikatoren`)) +
+  geom_line(color = "#F39C12", linewidth = 0.55) +
+  geom_hline(yintercept = 0, color = "black", linetype = "dashed", linewidth = 0.4) +
+  scale_x_date(date_breaks = "2 years", date_labels = "%Y", expand = c(0, 0)) +
+  labs(title = "DST's forbrugertillidsindikator", x = "År", y = "Forbrugertillidsindikator") +
   theme_minimal() +
-  theme(
-    plot.title = element_text(
-      size = 16,
-      hjust = 0.5
-    ),
-    axis.title.x = element_text(size = 11),
-    axis.title.y = element_text(size = 11),
-    axis.text = element_text(size = 9),
-    panel.grid.major = element_line(
-      color = "#E5E5E5",
-      linewidth = 0.4
-    ),
-    panel.grid.minor = element_line(
-      color = "#EEEEEE",
-      linewidth = 0.3
-    )
-  )
+  theme(plot.title = element_text(size = 16, hjust = 0.5))
+
 
 # Opg 4.2----
 
