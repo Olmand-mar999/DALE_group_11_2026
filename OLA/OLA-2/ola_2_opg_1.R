@@ -168,16 +168,27 @@ library(ggplot2)
 plot_df <- aggregate(kvmpris ~ bycat, data = all_data, FUN = mean)
 plot_df$antal <- aggregate(kvmpris ~ bycat, data = all_data, FUN = length)$kvmpris
 plot_df$label <- paste0(plot_df$bycat, "\n(n = ", plot_df$antal, ")")
+plot_df$label <- factor(plot_df$label, levels = plot_df$label)
 
-ggplot(plot_df, aes(x = reorder(label, kvmpris), y = kvmpris)) +
-  geom_col(fill = "orange", width = 0.7) +
+orange_trappe <- c("#FFB84D", "#FFA01F", "#FF8300", "#E56A00", "#B34700")
+
+ggplot(plot_df, aes(x = label, y = kvmpris, fill = bycat)) +
+  geom_col(width = 0.7) +
   geom_text(aes(label = format(round(kvmpris), big.mark = ".", decimal.mark = ",")),
             vjust = -0.5, size = 3.5) +
+  scale_fill_manual(values = orange_trappe, guide = "none") +
   scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ","),
                      expand = expansion(mult = c(0, 0.08))) +
-  labs(title = "Storby har den højeste pris pr kvm i kr",
-       subtitle = "Boliger til salg, byer kategoriseret efter DST's byområder 2026",
+  labs(title    = "Kvm-prisen stiger med bystørrelsen, dog ikke i landsbyerne",
+       subtitle = "Gennemsnitlig udbudt kvm-pris, byer inddelt efter indbyggertal",
        x = "Bykategori", y = "Kr. pr. m²",
-       caption = "Kilde: Boligsiden.dk | Danmarks Statistik (BY3) | Danmarks Statistik (POSTNR1)") +
+       caption = paste0("n = antal boliger til salg i kategorien\n",
+                        "Kilde: Boligsiden.dk | Danmarks Statistik (BY3) | Danmarks Statistik (POSTNR1)")) +
   theme_minimal() +
-  theme(panel.grid.major.x = element_blank())
+  theme(panel.grid.major.x = element_blank(),
+        axis.title.x = element_text(margin = margin(t = 12)),
+        axis.title.y = element_text(margin = margin(r = 12)),
+        plot.title   = element_text(margin = margin(b = 4)),
+        plot.subtitle = element_text(margin = margin(b = 12)),
+        plot.caption = element_text(margin = margin(t = 12), colour = "grey30"),
+        plot.margin  = margin(15, 15, 10, 15))
