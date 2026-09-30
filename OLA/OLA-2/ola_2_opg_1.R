@@ -52,7 +52,7 @@ sum(duplicated(BY3$BYER)) # Test om det virkede. Skal give 0
 
 #1.2
 
-# Inspiration fra danmarks statistik BY2 til at vælge inddelingen
+# Inspiration fra Danmarks statistik BY2 til at vælge inddelingen
 dst_meta("BY2")$values$BYST
 
 BY3$bycat <- cut(BY3$Indbyggertal,
@@ -62,7 +62,11 @@ BY3$bycat <- cut(BY3$Indbyggertal,
 
 #1.3
 data <- read.csv("https://raw.githubusercontent.com/Olmand-mar999/DALE_group_11_2026/main/Dataset/boligsiden.csv",header = T)
+
+# Første række er fyldt med N/A værdier, så vi starter på række 2.
 data <- data[2:nrow(data),]
+
+# Boliger, hvor liggetid er N/A, bliver lavet om til 0 dag.
 for (i in which(is.na(data$liggetid)))
   data$liggetid[i] <- "0 dag"
 
@@ -71,7 +75,6 @@ data <- na.omit(data)
 
 # Lav pris til numeric
 data$pris <- sub(" kr\\.", "", data$pris)
-data$pris <- sub("\\.", "", data$pris)
 data$pris <- sub("\\.", "", data$pris)
 data$pris <- as.numeric(data$pris)
 
@@ -113,7 +116,7 @@ mean(col_data_na_free$kvmpris)
 mean(na_rows$kvmpris)
 
 # Vi er derfor nødt til at indbyggertallet på de byer vi ikke har data på
-# Derfor henter vi postnummer data fra danmarks statistik og merger med det.
+# Derfor henter vi postnummer data fra Danmarks statistik og merger med det.
 regmeta <- dst_meta("POSTNR1")
 regmeta$variables
 regmeta$values$PNR20
@@ -139,8 +142,8 @@ POSTNR1$by_kommune <- substr(POSTNR1$PNR20,11,nchar(POSTNR1$PNR20))
 POSTNR1$PNR20 <- substr(POSTNR1$PNR20,1,4)
 
 # Omnavngiver kolonnerne så de kan merges med boligdataen
-colnames(POSTNR1)[1] <- "postnr"
-colnames(POSTNR1)[5] <- "Ant_indbyg"
+colnames(POSTNR1)[colnames(POSTNR1) == "PNR20"] <- "postnr"
+colnames(POSTNR1)[colnames(POSTNR1) == "value"] <- "Ant_indbyg"
 
 # Merger med postnumrene
 new_col <- merge(na_rows, POSTNR1, by = "postnr")
@@ -175,6 +178,6 @@ ggplot(plot_df, aes(x = reorder(label, kvmpris), y = kvmpris)) +
   labs(title = "Storby har den højeste pris pr kvm i kr",
        subtitle = "Boliger til salg, byer kategoriseret efter DST's byområder 2026",
        x = "Bykategori", y = "Kr. pr. m²",
-       caption = "Kilde: Boligsiden og Danmarks Statistik (BY3)") +
+       caption = "Kilde: Boligsiden.dk | Danmarks Statistik (BY3) | Danmarks Statistik (POSTNR1)") +
   theme_minimal() +
   theme(panel.grid.major.x = element_blank())
