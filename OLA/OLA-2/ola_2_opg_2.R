@@ -58,6 +58,7 @@ primeta$values$Tid
 # Hentning af forbrugsdata
 Fork <- dst_get_data("NKN1", query = list(TRANSAKT = "*", PRISENHED = "*", SÆSON = "*", Tid = "*"))
 
+##### Måske skal P31S14D eller P31S1MD bruges #####
 # Behold husholdningernes forbrugsudgifter (P31S14D), kædede værdier i mia. kr. (LKV_M), sæsonkorrigeret (Y)
 fk <- Fork[grepl("^P31S14D", Fork$TRANSAKT) &
              grepl("^LKV_M ", Fork$PRISENHED) &
@@ -168,6 +169,12 @@ ggplot(res, aes(x = Kvartal)) +
   labs(title = "Residualer: faktisk minus modelforudsagt vækst",
        x = "År", y = "Procentpoint", color = NULL) +
   theme_minimal()
+
+
+
+
+
+
 
 
 
