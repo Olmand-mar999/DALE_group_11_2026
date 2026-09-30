@@ -1,4 +1,4 @@
-# Opg. 4.1 ----
+# Opg. 4.1: Illustration af forbrugertillid ----
 
 # Pakker
 library(dkstat)
@@ -8,7 +8,7 @@ library(ggplot2)
 # Hent data fra DST
 Forventninger <- dst_get_data("FORV1", query = list(INDIKATOR = "*", Tid = "*"))
 
-# Datokollone laves (kan muligvis kigge ind i om Tid bare skal reformateres)
+# Datokolonne laves (kan muligvis kigge ind i om Tid bare skal reformateres)
 Forventninger$Dato <- as.Date(Forventninger$TID, tz = "Europe/Copenhagen")
 
 # Giver 1996 mening?
@@ -51,81 +51,116 @@ ggplot(KV, aes(x = Kvartal, y = `F1 Forbrugertillidsindikatoren`)) +
   theme(plot.title = element_text(size = 16, hjust = 0.5))
 
 
-# Opg 4.2----
+# Opg 4.2: Gennemsnit af underspørgsmål----
 
-colnames(KV_forventninger)
-# Det er F9 der er det spørgsmål de mener.
+# Se på kolonnenavne og find frem til hvilken et spørgsmål, som underspørgsmålet hænger sammen med.
+colnames(KV)
+# F9 passer bedst, da der er snak om forbrugsgoder i øjeblikket
 
-KV_forventninger$Kvartal
+# Behold data fra 1. kvt. 2000 og frem
+KV_4_2 <- KV[KV$Kvartal >= as.Date("2000-01-01"), ]
 
-# Gem data fra 2000 og frem
-data_cut <- which(Forventninger[,1]=="2000-03-01 CET")
-Forventninger_2000 <- Forventninger[data_cut:nrow(Forventninger),]
+# Træk F9 ud som vektor via kolonnens kode
+F9 <- KV_4_2[[grep("^F9 ", colnames(KV_4_2))]]
 
-round(mean(Forventninger_2000$`F9 Anskaffelse af større forbrugsgoder, fordelagtigt for øjeblikket`),2)
+# Gennemsnit af F9
+mean(F9, na.rm = TRUE)
+
+# Udregning af range og spredning
+range(F9, na.rm = TRUE)
+sd(F9, na.rm = TRUE)
 
 
-# 4.3
+# Antal kvartaler med positivt nettotal
+sum(F9 > 0, na.rm = TRUE)
 
-#Hent Forbrugsgruppe data
+# Hvilket kvartal var forbrugerne mest positive (højeste F9)?
+KV_4_2$Kvartal[which.max(F9)]
+
+# Hvilket kvartal var de mest negative (laveste F9)?
+KV_4_2$Kvartal[which.min(F9)]
+
+
+# Plot F9 over tid med nullinjen som reference
+ggplot(KV_4_2, aes(x = Kvartal, y = F9)) +
+  geom_line(color = "#F39C12", linewidth = 0.55) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(title = "F9: Fordelagtigt at anskaffe større forbrugsgoder", x = "År", y = "Nettotal") +
+  theme_minimal()
+
+# Opg. 4.3: De 11 grupper af forbrug ----
+
+# Se tabellens variable og værdier
 formeta <- dst_meta("NAHC21")
 formeta$variables
 formeta$values$FORMAAAL
 formeta$values$PRISENHED
 formeta$values$Tid
 
-my_query <- list(
-  FORMAAAL = "*",
-  PRISENHED = "Løbende priser",
-  Tid = c("2020", "2021", "2022", "2023")
-)
+# Hent alle formål, begge prisenheder og alle år
+my_query <- list(FORMAAAL = "*", PRISENHED = "*", Tid = "*")
+Forbrug <- dst_get_data("NAHC21", query = my_query)
 
-Forbrugsgrupper <- dst_get_data("NAHC21", query = my_query)
+# Tjek kolonnenavne og teksten i prisenhed
+names(Forbrug)
+unique(Forbrug$PRISENHED)
 
-Forbrugsgrupper <- pivot_wider(Forbrugsgrupper, names_from = FORMAAAL, 
-                             values_from = value)
+# Hvad brugte danskerne flest penge på i 2022 (løbende priser)
+f22 <- Forbrug[format(Forbrug$TID, "%Y") == "2022" &
+                 Forbrug$PRISENHED == "V Løbende priser" &
+                 !grepl("I alt", Forbrug$FORMAAAL), ]
 
-# Max værdi
-max_val <- max(Forbrugsgrupper[3,4:14])
-which(Forbrugsgrupper[3,]==max_val)
-Forbrugsgrupper[3,7]
 
-# Værdi (2023 - værdi 2020) / værdi 2020 * 100
+# Kategori med højeste forbrug i 2022
+f22[which.max(f22$value), ]
 
-# Skal være numeric da class ellers er data.frame
-Forbrug_stigning <- data.frame(
-  Forbrugsgruppe = colnames(Forbrugsgrupper)[4:ncol(Forbrugsgrupper)],
-  Forbrug_stigning = as.numeric(
-    (Forbrugsgrupper[4, 4:ncol(Forbrugsgrupper)] -
-       Forbrugsgrupper[1, 4:ncol(Forbrugsgrupper)]) /
-      Forbrugsgrupper[1, 4:ncol(Forbrugsgrupper)] * 100),
-  Penge_stigning = as.numeric(Forbrugsgrupper[4, 4:ncol(Forbrugsgrupper)] -
-                                Forbrugsgrupper[1, 4:ncol(Forbrugsgrupper)])
-)
 
-ggplot(Forbrug_stigning, 
-       aes(x = reorder(Forbrugsgruppe, Forbrug_stigning),
-           y = Forbrug_stigning)) +
-  geom_col(fill = "steelblue") +
-  geom_text(
-    aes(label = paste0(round(Forbrug_stigning, 1), "%")),
-    hjust = -0.1,
-    size = 3
-  ) +
+# Plot til hvad danskerne brugte flest penge på i 2022
+# # Hjælpefunktion: fjern koden foran gruppenavnet og ombryd lange navne
+ryd <- function(x) sapply(sub("^CP[A-Z] ", "", x),
+                          function(s) paste(strwrap(s, 28), collapse = "\n"),
+                          USE.NAMES = FALSE)
+
+## Læsbart gruppenavn til akserne
+f22$gruppe <- ryd(f22$FORMAAAL)
+
+## Søjlediagram sorteret efter størrelse, vandret så de lange navne kan være på y-aksen
+ggplot(f22, aes(x = reorder(gruppe, value), y = value / 1000)) +
+  geom_col(fill = "#F39C12") +
   coord_flip() +
-  scale_y_continuous(
-    breaks = seq(0, 40, by = 10),
-    limits = c(0, 45)
-  ) +
-  labs(
-    title = "Procentvis stigning i forbrug 2020-2023",
-    x = NULL,
-    y = "Stigning (%)"
-  ) +
+  labs(title = "Husholdningernes forbrug i 2022", x = NULL, y = "Mia. kr. (løbende priser)") +
   theme_minimal()
 
 
-# Opg 4.4
+# Behold kædede værdier (2020-priser) uden "I alt"
+lan <- Forbrug[Forbrug$PRISENHED == "LAN 2020-priser, kædede værdier" &
+                 !grepl("I alt", Forbrug$FORMAAAL), ]
+lan$aar <- format(lan$TID, "%Y")
+
+
+# Værdier for 2020 og 2023 side om side pr. gruppe
+v20 <- lan[lan$aar == "2020", c("FORMAAAL", "value")]
+v23 <- lan[lan$aar == "2023", c("FORMAAAL", "value")]
+vaekst <- merge(v20, v23, by = "FORMAAAL", suffixes = c("_2020", "_2023"))
+
+# Procentvis vækst fra 2020 til 2023, størst først
+vaekst$pct <- (vaekst$value_2023 / vaekst$value_2020 - 1) * 100
+vaekst[order(-vaekst$pct), ]
+
+# Plot til hvilken gruppe steg mest fra 2020 - 2023
+## Læsbart gruppenavn til akserne
+vaekst$gruppe <- ryd(vaekst$FORMAAAL)
+
+## Søjler for procentvis vækst, farvet efter om væksten er positiv eller negativ
+ggplot(vaekst, aes(x = reorder(gruppe, pct), y = pct, fill = pct > 0)) +
+  geom_col(show.legend = FALSE) +
+  scale_fill_manual(values = c("TRUE" = "#F39C12", "FALSE" = "grey60")) +
+  coord_flip() +
+  labs(title = "Realvækst i forbrug 2020-2023", x = NULL, y = "Vækst i pct. (2020-priser, kædede værdier)") +
+  theme_minimal()
+
+
+# Opg 4.4: simple lineære regressioner ----
 # Antal komplette kvartaler. floor rounds down to lowest integer
 År <- floor(nrow(Forventninger) / 12)
 
