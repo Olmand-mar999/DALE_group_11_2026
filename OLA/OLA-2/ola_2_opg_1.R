@@ -61,7 +61,7 @@ BY3$bycat <- cut(BY3$Indbyggertal,
                  right  = FALSE)
 
 #1.3
-data <- read.csv("boligsiden.csv",header = T)
+data <- read.csv("https://raw.githubusercontent.com/Olmand-mar999/DALE_group_11_2026/main/Dataset/boligsiden.csv",header = T)
 data <- data[2:nrow(data),]
 for (i in which(is.na(data$liggetid)))
   data$liggetid[i] <- "0 dag"

@@ -1,6 +1,6 @@
 # Opg. 1.1
 
-file <- "https://raw.githubusercontent.com/Olmand-mar999/DALE_group_11_2026/main/boligsiden.csv"
+file <- "https://raw.githubusercontent.com/Olmand-mar999/DALE_group_11_2026/main/Dataset/boligsiden.csv"
 boligsiden <- read.csv(file, colClasses = "character")
 clean_num <- function(x) {
   x <- gsub("kr\\.", "", x)   # strip " kr." (only pris has this)
