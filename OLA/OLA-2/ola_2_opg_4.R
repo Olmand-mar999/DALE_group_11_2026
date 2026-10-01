@@ -160,70 +160,98 @@ ggplot(vaekst, aes(x = reorder(gruppe, pct), y = pct, fill = pct > 0)) +
   theme_minimal()
 
 
-# Opg 4.4: simple lineære regressioner ----
-# Antal komplette kvartaler. floor rounds down to lowest integer
-År <- floor(nrow(Forventninger) / 12)
+# Opg. 4.4 ----
 
-# Gruppér hver 12. måned. 
-År_grupper <- rep(1:År, each = 12)
+# ---- Indikatorer (fra KV i 4.1) ----
+# De fire spørgsmål, som DI-FTI består af
+F2  <- KV[[grep("^F2 ",  colnames(KV))]]
+F4  <- KV[[grep("^F4 ",  colnames(KV))]]
+F9  <- KV[[grep("^F9 ",  colnames(KV))]]
+F10 <- KV[[grep("^F10 ", colnames(KV))]]
 
-# Fjern overskydende måneder der ikke indgår i et fuldt år
-År_forventninger <- Forventninger[1:(År * 12), ]
+# Tabel med kvartalsdato, DST's FTI (F1) og DI-FTI (gennemsnit af de fire spørgsmål)
+fti <- data.frame(Kvartal = KV$Kvartal,
+                  DST_FTI = KV[[grep("^F1 ", colnames(KV))]],
+                  DI_FTI  = (F2 + F4 + F9 + F10) / 4)
 
-# -1 i koden betyder ikke medtag 1. kolonne
-År_forventninger <- aggregate(
-  År_forventninger[, -1],
-  by = list(År_grupper = År_grupper),
-  FUN = function(x) mean(as.numeric(x), na.rm = TRUE)
-)
+# ---- Forbrugsdata: 11 grupper pr. kvartal ----
+# Hent alle grupper, prisenheder, sæsonvarianter og kvartaler
+formeta <- dst_meta("NKHC21")
+formeta$variables
+formeta$values$FORMAAAL
+formeta$values$PRISENHED
+formeta$values$SÆSON
+formeta$values$Tid
 
-# -1 i koden betyder den ikke medtager tidsperioderne. De indsættes igen.
-# Den tager 2026 med, da den har den første måned inkluderet. Den fjernes
-År_data <- Forventninger$TID[seq(1, nrow(Forventninger), by = 12)]
-År_data <- År_data[1:År]
-
-År_forventninger$År <- År_data
-
-# Flyt år til første kolonne og fjern år_grupper som kolonne
-År_forventninger <- År_forventninger[, c(
-  "År",
-  setdiff(names(År_forventninger), c("År", "År_grupper"))
-)]
-# -2 er for at få data frem til 2023 som forbrugsdataen har
-data_cut <- which(År_forventninger$År=="2000-01-01 CET")
-År_forventninger <- År_forventninger[data_cut:(nrow(År_forventninger)-2),]
-
-FTI <- År_forventninger[,c(1,3,4,5,6,7)]
-DI_FTI <- År_forventninger[,c(1,3,5,7,11)]
-FTI$Gennemsnit <- rowMeans(FTI[, -1], na.rm = TRUE)
-DI_FTI$Gennemsnit <- rowMeans(DI_FTI[, -1], na.rm = TRUE)
-
-my_query2 <- list(
+my_query <- list(
   FORMAAAL = "*",
-  PRISENHED = "Løbende priser",
+  PRISENHED = "2020-priser, kædede værdier",
+  SÆSON = "Sæsonkorrigeret",
   Tid = "*"
 )
 
-Forbrugsgrupper_alt <- dst_get_data("NAHC21", query = my_query2)
-Forbrugsgrupper_alt <- as.data.frame(pivot_wider(Forbrugsgrupper_alt, 
-                              names_from = FORMAAAL, values_from = value))
+gr <- dst_get_data("NKHC21", query = my_query)
 
-data_cut2 <- which(Forbrugsgrupper_alt$TID=="2000-01-01 CET")
-Forbrugsgrupper_alt <- Forbrugsgrupper_alt[data_cut2:nrow(Forbrugsgrupper_alt),]
-Forbrugsgrupper_alt$DI_FTI <- DI_FTI$Gennemsnit
-Forbrugsgrupper_alt$FTI <- FTI$Gennemsnit
+gr$TID <- as.Date(gr$TID, tz = "Europe/Copenhagen")
 
-colnames(Forbrugsgrupper_alt)
+# Én kolonne pr. gruppe
+bred <- reshape(gr[, c("TID", "FORMAAAL", "value")],
+                idvar = "TID", timevar = "FORMAAAL", direction = "wide")
 
-# Paste sætter navnene på alle listerne. 
-# Så den sætter navnet på kolonnen den laver lm med efter -
-# [[]] betyder der arbejdes i en liste.
-summary_list <- list()
-for (i in 1:11) {
-  DI_FTI_model <- lm(Forbrugsgrupper_alt[,(i+3)] ~ Forbrugsgrupper_alt[, 15])
-  FTI_model <- lm(Forbrugsgrupper_alt[,(i+3)] ~ Forbrugsgrupper_alt[, 16])
-  name = colnames(Forbrugsgrupper_alt[i+3])
-  summary_list[[paste0("DI_FTI_", name)]] <- summary(DI_FTI_model)
-  summary_list[[paste0("FTI_", name)]] <- summary(FTI_model)
+which(is.na(bred))
+
+# Fjern "value." og behold kun gruppens kode (CPA, CPB, ...) som kolonnenavn
+names(bred) <- sub("^value\\.", "", names(bred))
+#names(bred)[-1] <- sub(" .*", "", names(bred)[-1])
+
+# Sortér kronologisk
+#bred <- bred[order(bred$Kvartal), ]
+
+# ---- Årlig vækst for hver gruppe (løkke over grupperne) ----
+
+# Rækken med CPT i alt fjernes
+bred <- bred[-2]
+
+# Navnene på de 11 grupper
+y_navne <- names(bred)[-1]
+n <- nrow(bred)
+
+# Saml vækst og indikatorer, og behold fra 1. kvt. 2000
+names(bred)[1] = "Kvartal"
+
+# Tabel hvor væksten samles, første 4 kvartaler har ingen vækst
+vaekst_gr <- data.frame(Kvartal = bred$Kvartal[5:n])
+
+# Gentag for hver gruppe: vækst i pct. mod samme kvartal året før
+for (navn in y_navne) {
+  x <- bred[[navn]]
+  vaekst_gr[[navn]] <- (x[5:n] / x[1:(n - 4)] - 1) * 100
 }
-names(summary_list)
+
+
+d44 <- merge(vaekst_gr, fti, by = "Kvartal")
+d44 <- d44[d44$Kvartal >= as.Date("2000-01-01"), ]
+
+
+
+# ---- 22 regressioner i en liste ----
+# Tom liste til de 22 summaries
+regressioner <- list()
+
+# Ydre løkke: de 11 grupper. Indre løkke: de to indikatorer
+for (navn in y_navne) {
+  for (indikator in c("DST_FTI", "DI_FTI")) {
+    modelnavn <- paste(navn, "~", indikator)
+    regressioner[[modelnavn]] <- summary(lm(reformulate(indikator, response = navn), data = d44))
+  }
+}
+
+# Tjek: skal give 22
+length(regressioner)
+
+# ---- Overblik over alle 22 ----
+tabel <- data.frame(model     = names(regressioner),
+           R2        = sapply(regressioner, function(s) s$r.squared),
+           haeldning = sapply(regressioner, function(s) s$coefficients[2, 1]),
+           p_vaerdi  = sapply(regressioner, function(s) s$coefficients[2, 4]))
+rownames(tabel) <- NULL

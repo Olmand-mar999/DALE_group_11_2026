@@ -1,68 +1,53 @@
 library(dkstat)
 library(tidyr)
 
-#Hent Forbrugerforventninger data-----------------------------------------------
-formeta <- dst_meta("FORV1")
-formeta$variables
-formeta$values$INDIKATOR
-formeta$values$Tid
+## Opgave 2.1 – Opdatering af DI’s forbrugertillidsindikator ----
 
+# --- Klargøring af DST & DI - FTI ---
+# Hentning af data for forbrugerforventninger
+Forventninger <- dst_get_data("FORV1", query = list(INDIKATOR = "*", Tid = "*"))
 
-Forventninger <- dst_get_data("FORV1",
-                              query = list(INDIKATOR = "*", Tid = "*"),
-                              lang = "da", meta_data = formeta)
+# Datokolonne laves (kan muligvis kigge ind i om Tid bare skal reformateres)
+Forventninger$Dato <- as.Date(Forventninger$TID, tz = "Europe/Copenhagen")
 
-colnames(Forventninger) <- c("indikator", "tid", "nettotal")
+# Behold kun rækker fra og med 1. januar 2000
+Forventninger <- Forventninger[Forventninger$Dato >= as.Date("2000-01-01"), ]
 
+# Placér hver måned i sit kvartal. Kvartalet får datoen på kvartalets første dag
+Forventninger$Kvartal <- as.Date(cut(Forventninger$Dato, "quarter"))
 
-Forventninger_wider <- pivot_wider(Forventninger, names_from = indikator, 
-                                   values_from = nettotal)
+# Beregn gennemsnittet af value for hver kombination af kvartal og indikator
+KV_lang <- aggregate(value ~ Kvartal + INDIKATOR, data = Forventninger, FUN = mean)
 
-# Gem data fra 2000 og frem
-forv1_00 <- subset(Forventninger_wider, tid >= as.Date("2000-01-01"))
+# Gør tabellen "bred": én række pr. kvartal og én kolonne pr. indikator
+KV <- reshape(KV_lang, idvar = "Kvartal", timevar = "INDIKATOR", direction = "wide")
 
-# Feature engineering, kvartaler og FTI og DI-FTI-------------------------------
+# # reshape sætter "value." foran alle kolonnenavne, så det fjernes her
+names(KV) <- sub("^value\\.", "", names(KV))
 
-forv1_00$tid = as.character(forv1_00$tid)
-forv1_00$tid = as.Date(forv1_00$tid)
+# Sortér rækkerne så kvartalerne står i kronologisk rækkefølge
+#KV <- KV[order(KV$Kvartal), ]
 
-# Antal komplette kvartaler. floor rounds down to lowest integer
-kvartaler <- floor(nrow(forv1_00) / 3)
+# Nulstil rækkenumrene
+#rownames(KV) <- NULL
 
-# Gruppér hver 3. måned. Giver grupper der slutter med værdien 106.
-KV_grupper <- rep(1:kvartaler, each = 3)
+# DI-FTI's fire spørgsmål
+F2  <- KV[[grep("^F2 ",  colnames(KV))]]   # Familiens økonomi i dag vs. for et år siden
+F4  <- KV[[grep("^F4 ",  colnames(KV))]]   # Danmarks økonomi i dag vs. for et år siden
+F9  <- KV[[grep("^F9 ",  colnames(KV))]]   # Fordelagtigt at købe forbrugsgoder nu
+F10 <- KV[[grep("^F10 ", colnames(KV))]]   # Forbrugsgoder de næste 12 måneder
 
-# Fjern overskydende måneder der ikke indgår i et fuldt kvartal
-KV_forventninger <- forv1_00[1:(kvartaler * 3), ]
+# DI-FTI er det simple gennemsnit af de fire spørgsmål
+DI_FTI <- (F2 + F4 + F9 + F10) / 4
 
-# -1 i koden betyder ikke medtag 1. kolonne
-KV_forventninger <- aggregate(
-  KV_forventninger[, -1],
-  by = list(KV_grupper = KV_grupper),
-  FUN = function(x) mean(as.numeric(x), na.rm = TRUE)
-)
+# DST's forbrugertillidsindikator
+DST_FTI <- KV[[grep("^F1 ", colnames(KV))]]
 
-# -1 i koden betyder den ikke medtager tid. De indsættes igen.
-KV_måneder <- forv1_00$tid[seq(3, nrow(forv1_00), by = 3)]
-KV_forventninger$Kvartal <- KV_måneder
+# Samling af begge indikatorer med kvartalsdatoen i én tabel
+fti <- data.frame(Kvartal = KV$Kvartal, DST_FTI = DST_FTI, DI_FTI = DI_FTI)
 
-# Flyt Kvartal til første kolonne og fjern KV_grupper som kolonne
-KV_forventninger <- KV_forventninger[, c(
-  "Kvartal",
-  setdiff(names(KV_forventninger), c("Kvartal", "KV_grupper"))
-)]
-
-# Gem FTI og DI-FTI spørgsmål i eget dataframe
-colnames(KV_forventninger)
-
-FTI <- KV_forventninger[,c(1,3,4,5,6,7)]
-DI_FTI <- KV_forventninger[,c(1,3,5,7,11)]
-
-# Tilføj kolonne med simpelt gennemsnit af spørgsmålene
-FTI$Gennemsnit <- rowMeans(FTI[, -1], na.rm = TRUE)
-DI_FTI$Gennemsnit <- rowMeans(DI_FTI[, -1], na.rm = TRUE)
-
-#Hent husholdningernes forbrugsudgifter-----------------------------------------
+# --- Forbrugsdata ---
+# Tjek af variabel navne for forbrugsdata
 primeta <- dst_meta("NKN1")
 primeta$variables
 primeta$values$TRANSAKT
@@ -70,109 +55,134 @@ primeta$values$PRISENHED
 primeta$values$SÆSON
 primeta$values$Tid
 
-my_query2 <- list(
-  TRANSAKT = "P.31 Husholdningernes forbrugsudgifter",
-  PRISENHED = "2020-priser, kædede værdier, (mia. kr.)",
-  SÆSON = "Sæsonkorrigeret",
-  Tid = "*"
-)
+# Hentning af forbrugsdata
+Fork <- dst_get_data("NKN1", query = list(TRANSAKT = "*", PRISENHED = "*", SÆSON = "*", Tid = "*"))
 
-nkn1 <- dst_get_data("NKN1", query = my_query2)
-nkn1 <- nkn1[,4:5]
-colnames(nkn1) <- c("Kvartal","Forbrug")
+##### Måske skal P31S14D eller P31S1MD bruges #####
+# Behold husholdningernes forbrugsudgifter (P31S14D), kædede værdier i mia. kr. (LKV_M), sæsonkorrigeret (Y)
+fk <- Fork[grepl("^P31S14D", Fork$TRANSAKT) &
+             grepl("^LKV_M ", Fork$PRISENHED) &
+             grepl("^Y ", Fork$SÆSON), ]
 
-# Gem data fra 1999 og frem (1999 skal bruges til feature engineering)
-Realvækst <- subset(nkn1, Kvartal >= as.Date("1999-01-01"))
+# Sortér efter tid
+#fk <- fk[order(fk$TID), ]
 
-# Pakken henter kvartaler som den første måned i kvartalet
-# For at det skal matche forventningsdataen skal det laves om til den sidste måned
+# ---- Årlig realvækst pr. kvartal ----
+# Forbruget som almindelig vektor og antal kvartaler
+x <- fk$value
+n <- length(x)
 
-Realvækst$Kvartal <- seq(
-  from = as.Date("1999-03-01"),
-  by = "3 months",
-  length.out = nrow(Realvækst)
-)
+# Vækst i pct. for hvert kvartal i forhold til samme kvartal året før (4 kvartaler tidligere)
+vaekst <- (x[5:n] / x[1:(n - 4)] - 1) * 100
 
+# Saml kvartalsdato og vækst i en tabel
+vaekst <- data.frame(Kvartal = as.Date(fk$TID[5:n], tz = "Europe/Copenhagen"),
+                     Forbrug_vaekst = vaekst)
 
-# Feature engineering-----------------------------------------------------------
+# Sæt vækst og indikatorer sammen via kvartalsdatoen
+d <- merge(fti, vaekst, by = "Kvartal")
 
-## Grunden til at der skal være 4 NA'er, er at funktionen returner
-# 4 værdier mindre end der er i datasættet, så der der nødt til at blive lavet
-# 4 tomme rækker så den ikke giver fejl
-Realvækst$Forbrug <- c(
-  rep(NA, 4),
-  diff(log(Realvækst$Forbrug), lag = 4) * 100
-)
-Realvækst <- Realvækst[5:nrow(Realvækst),]
+# Estimationsperiode: 1. kvt. 2000 til nyeste forbrugsdata 
+d_est <- d[d$Kvartal >= as.Date("2000-01-01"), ]
 
-#Merge FTI og DI-FTI med forbrugsdata------------------------------------------
+model_DI  <- lm(Forbrug_vaekst ~ DI_FTI,  data = d_est)
+model_DST <- lm(Forbrug_vaekst ~ DST_FTI, data = d_est)
 
-FTI_col = merge(Realvækst, FTI, by = "Kvartal")
-DI_FTI_col = merge(Realvækst, DI_FTI, by = "Kvartal")
-
-# Correlationer og forklaringsgrader--------------------------------------------
-
-# Simple lineær regression med simpelt gennemsnit
-DI_FTI_cor <- cor(DI_FTI_col$Forbrug, DI_FTI_col$Gennemsnit)
-DI_FTI_model <- lm(Forbrug ~ Gennemsnit, data = DI_FTI_col)
-DI_FTI_summary <- summary(DI_FTI_model)
-
-FTI_cor <- cor(FTI_col$Forbrug, FTI_col$Gennemsnit)
-FTI_model <- lm(Forbrug ~ Gennemsnit, data = FTI_col)
-FTI_summary <- summary(FTI_model)
-
+Summary_DI <- summary(model_DI)
+Summary_DST <- summary(model_DST)
 
 # 3.1 --------------------------
 # Ligningen for de estimerede værdier er følgende:
 # y^ = B^0 + B^1 * X
 
-# DI_FTI
-DI_FTI_B_0 <- DI_FTI_summary$coefficients[1,1]
-DI_FTI_B_1 <- DI_FTI_summary$coefficients[2,1]
+# DI
+DI_B0 <- Summary_DI$coefficients[1,1]
+DI_B1 <- Summary_DI$coefficients[2,1]
 
-y_pred_DI_FTI <- DI_FTI_B_0 + DI_FTI_B_1*DI_FTI_col$Gennemsnit
-y_pred_DI_FTI
+y_pred_DI <- DI_B0 + DI_B1 * d_est$DI_FTI
 
-# FTI
-FTI_B_0 <- FTI_summary$coefficients[1,1]
-FTI_B_1 <- FTI_summary$coefficients[2,1]
+# DST
+DST_B0 <- Summary_DST$coefficients[1,1]
+DST_B1 <- Summary_DST$coefficients[2,1]
 
-y_pred_FTI <- FTI_B_0 + FTI_B_1*FTI_col$Gennemsnit
-y_pred_FTI
+y_pred_DST <- DST_B0 + DST_B1 * d_est$DST_FTI
+
+# Sammenligning med predict funktionen
+sum(y_pred_DI - predict(model_DI)) # Skal give liste af 0
+sum(y_pred_DST - predict(model_DST)) # Skal give liste af 0
 
 # 3.2 -----------------------------------------------------------------------
 
 # Residuals = y - y^
-Res_DI_FTI <- Realvækst$Forbrug - y_pred_DI_FTI
-Res_FTI <- Realvækst$Forbrug - y_pred_FTI
+y <- d_est$Forbrug_vaekst
+Res_DI <- y - y_pred_DI
+Res_DST <- y - y_pred_DST
 
-plot(fitted(DI_FTI_model), Res_DI_FTI)
-abline(0, 0)
+tid_resid <- data.frame(
+  tid = rep(d_est$Kvartal, 2),
+  residual = c(Res_DI, Res_DST),
+  model = c(rep("DI's forbrugertillidsindikator", length(Res_DI)), 
+            rep("DST's forbrugertillidsindikator", length(Res_DST)))
+)
 
-plot(Res_DI_FTI)
-abline(0, 0)
+# Én tydelig orange nuance til hver model: lys til DI og mørk til DST
+farver_model <- c("DI's forbrugertillidsindikator" = "#FDAE6B", 
+                  "DST's forbrugertillidsindikator" = "#A63603")
+
+# Graf: ét punkt for hvert kvartal, med tiden på x-aksen og farve efter model
+ggplot(tid_resid, aes(x = tid, y = residual, colour = model)) +
+  # Stiplet linje ved 0: her ville punkterne ligge, hvis modellen ramte præcist
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+  # Ét punkt for hvert kvartal (farven kommer fra modellen)
+  geom_point(size = 2, alpha = 0.9) +
+  # De to modeller ved siden af hinanden
+  facet_wrap(~ model) +
+  # Brug de to orange farver (ingen forklaringsboks, da modelnavnet står over hver graf)
+  scale_colour_manual(values = farver_model, guide = "none") +
+  # X-aksen starter i 2000: årstal for hvert 4. år og en gitterlinje for hvert år
+  scale_x_date(limits = c(as.Date("2000-01-01"), as.Date("2026-12-31")), 
+               breaks = seq(as.Date("2000-01-01"), as.Date("2024-01-01"), by = "4 years"), 
+               minor_breaks = seq(as.Date("2000-01-01"), as.Date("2026-01-01"), by = "1 year"), 
+               date_labels = "%Y", expand = c(0, 0)) +
+  # Y-aksen: et tal for hvert 2. procentpoint og en gitterlinje for hvert procentpoint
+  scale_y_continuous(limits = c(-8, 8), breaks = seq(-8, 8, 2), minor_breaks = seq(-8, 8, 1)) +
+  # Titel, akser og kilde
+  labs(title = "DI model har færre udsving fra den faktiske realvækst", 
+       subtitle = "Modellerne får generelt større udsving under kriser", 
+       x = "År", y = "Residual (procentpoint)", 
+       caption = "  De stiplede linjer viser hvad den faktiske realvækst er
+  Kilde: Danmarks Statistik (FORV1 og NKN1) og egne beregninger") +
+  # Enkelt tema
+  theme_minimal() +
+  # Fed skrift på modelnavne, kilden til venstre, mørk ramme om hver graf og luft imellem
+  theme(strip.text = element_text(face = "bold"), 
+        plot.caption = element_text(hjust = 0), 
+        panel.border = element_rect(colour = "grey30", fill = NA, linewidth = 0.8), 
+        panel.spacing = unit(2, "lines"))
 
 # 3.3 -----------------------------------------------------------------------
 
-y_pred_DI_FTI_old <- predict(DI_FTI_model)
-y_pred_FTI_old <- predict(FTI_model)
+y_pred_DI <- predict(model_DI)
+y_pred_DST <- predict(model_DST)
 
 
 # SSR = (y - y^)^2
-y <- Realvækst$Forbrug
-RSS_DI_FTI <- sum((y - y_pred_DI_FTI_old)^2)
-TSS_DI_FTI <- sum((y - mean(y))^2)
+y <- d_est$Forbrug_vaekst
+RSS_DI <- sum((y - y_pred_DI)^2)
+TSS_DI <- sum((y - mean(y))^2)
 
-RSS_FTI <- sum((y - y_pred_FTI_old)^2)
-TSS_FTI <- sum((y - mean(y))^2)
+RSS_DST <- sum((y - y_pred_DST)^2)
+TSS_DST <- sum((y - mean(y))^2)
+TSS_DI
 
 # 3.4 ------------------------------------------------------------------------
 
 # r^2 = 1 - (RSS/TSS)
-r_squared_DI_FTI <- 1 - (RSS_DI_FTI / TSS_DI_FTI)
-r_squared_FTI <- 1 - (RSS_FTI / TSS_FTI)
+r_squared_DI <- 1 - (RSS_DI / TSS_DI)
+r_squared_DST <- 1 - (RSS_DST / TSS_DST)
 
-r_squared_DI_FTI
-DI_FTI_summary$r.squared
-r_squared_FTI
-FTI_summary$r.squared
+r_squared_DI
+Summary_DI$r.squared
+
+r_squared_DST
+Summary_DST$r.squared
