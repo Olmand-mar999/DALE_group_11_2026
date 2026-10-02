@@ -134,3 +134,120 @@ coef(model_DST)[1] + coef(model_DST)[2] * ny$DST_FTI
 predict(model_DI,  newdata = ny, interval = "prediction")
 predict(model_DST, newdata = ny, interval = "prediction")
 
+# ggplot skal indlæses til plottet
+library(ggplot2)
+
+# --- Data til plottet ---
+# Faktisk realvækst i estimationsperioden
+faktisk <- data.frame(kvartal = d_est$Kvartal,
+                      vaekst  = d_est$Forbrug_vaekst,
+                      serie   = "Faktisk")
+
+# Modellernes tilpassede værdier i estimationsperioden (DI-modellen)
+di_model <- data.frame(kvartal = d_est$Kvartal,
+                       vaekst  = predict(model_DI, newdata = d_est),
+                       serie   = "DI_model")
+
+# Modellernes tilpassede værdier i estimationsperioden (DST-modellen)
+dst_model <- data.frame(kvartal = d_est$Kvartal,
+                        vaekst  = predict(model_DST, newdata = d_est),
+                        serie   = "DST_model")
+
+# Samling af de tre serier i én tabel
+plot_df <- rbind(faktisk, di_model, dst_model)
+
+# Kun modellernes linjer (den faktiske vækst tegnes som søjler)
+modeller <- plot_df[plot_df$serie != "Faktisk", ]
+
+# Prognosepunkterne for kvartalet i ny (3. kvt. 2026): ét punkt pr. model
+prognose <- data.frame(kvartal = ny$Kvartal,
+                       vaekst  = c(predict(model_DI,  newdata = ny),
+                                   predict(model_DST, newdata = ny)),
+                       serie   = c("DI_model", "DST_model"))
+
+# Sidste tilpassede punkt for hver model, så den prikkede linje kan starte dér
+sidste <- plot_df[plot_df$kvartal == max(d_est$Kvartal) & plot_df$serie != "Faktisk", ]
+
+# Linjestykket fra sidste tilpassede punkt til prognosen
+prognose_linje <- rbind(sidste, prognose)
+
+# Tekst til søjlerne i forklaringsboksen
+txt_faktisk <- "Faktisk realvækst (kædede værdier)"
+
+# ggplot skal indlæses til plottet
+library(ggplot2)
+
+# --- Data til plottet ---
+# Faktisk realvækst i estimationsperioden
+faktisk <- data.frame(kvartal = d_est$Kvartal,
+                      vaekst  = d_est$Forbrug_vaekst,
+                      serie   = "Faktisk")
+
+# Modellernes tilpassede værdier i estimationsperioden (DI-modellen)
+di_model <- data.frame(kvartal = d_est$Kvartal,
+                       vaekst  = predict(model_DI, newdata = d_est),
+                       serie   = "DI_model")
+
+# Modellernes tilpassede værdier i estimationsperioden (DST-modellen)
+dst_model <- data.frame(kvartal = d_est$Kvartal,
+                        vaekst  = predict(model_DST, newdata = d_est),
+                        serie   = "DST_model")
+
+# Samling af de tre serier i én tabel
+plot_df <- rbind(faktisk, di_model, dst_model)
+
+# Kun modellernes linjer (den faktiske vækst tegnes som søjler)
+modeller <- plot_df[plot_df$serie != "Faktisk", ]
+
+# Prognosepunkterne for kvartalet i ny (3. kvt. 2026): ét punkt pr. model
+prognose <- data.frame(kvartal = ny$Kvartal,
+                       vaekst  = c(predict(model_DI,  newdata = ny),
+                                   predict(model_DST, newdata = ny)),
+                       serie   = c("DI_model", "DST_model"))
+
+# Sidste tilpassede punkt for hver model, så den prikkede linje kan starte dér
+sidste <- plot_df[plot_df$kvartal == max(d_est$Kvartal) & plot_df$serie != "Faktisk", ]
+
+# Linjestykket fra sidste tilpassede punkt til prognosen
+prognose_linje <- rbind(sidste, prognose)
+
+# Tekst til søjlerne i forklaringsboksen
+txt_faktisk <- "Faktisk realvækst (kædede værdier)"
+
+# --- Plot ---
+ggplot() +
+  # Søjler for faktisk realvækst, én pr. kvartal (bredde i dage)
+  geom_col(data = faktisk, aes(kvartal, vaekst, fill = txt_faktisk), width = 80) +
+  # Stiplet linje ved 0, ovenpå søjlerne
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+  # Linjer for de to modeller
+  geom_line(data = modeller, aes(kvartal, vaekst, colour = serie), linewidth = 0.8) +
+  # Prikket linje fra sidste tilpassede punkt ind i prognosen
+  geom_line(data = prognose_linje, aes(kvartal, vaekst, colour = serie),
+            linetype = "dotted", linewidth = 0.8) +
+  # Punkter for prognosen
+  geom_point(data = prognose, aes(kvartal, vaekst, colour = serie), size = 3) +
+  # Farve til søjlerne
+  scale_fill_manual(values = setNames("grey75", txt_faktisk), name = NULL) +
+  # Farver og tekster til modellerne
+  scale_colour_manual(values = c(DI_model = "#F16913", DST_model = "#7F2704"),
+                      labels = c(DI_model = "Model med DI-FTI", DST_model = "Model med DST-FTI"),
+                      name = NULL) +
+  # X-aksen: et årstal hvert andet år, fra 2000
+  scale_x_date(breaks = seq(as.Date("2000-01-01"), as.Date("2026-01-01"), by = "2 years"),
+               date_labels = "%Y", expand = c(0.01, 0)) +
+  # Y-aksen: tal for hver 2. pct.-point, tynde hjælpelinjer for hver 1.
+  scale_y_continuous(breaks = seq(-8, 10, by = 2),
+                     minor_breaks = seq(-8, 10, by = 1)) +
+  # Titel, akser og kilde
+  labs(title = "Modellerne forudsiger nulvækst i 3. kvartal 2026, men har undervurderet væksten siden 2024",
+       subtitle = "Faktisk årlig realvækst i husholdningernes forbrug (søjler) mod modeller med DI-FTI og DST-FTI. Punkterne er prognosen for 3. kvt. 2026",
+       x = "År", y = "Pct.",
+       caption = "Kilde: Danmarks Statistik (FORV1 og NKN1) og egne beregninger") +
+  # Enkelt tema
+  theme_minimal() +
+  # Fed titel, forklaring i bunden og kilden i venstre side
+  theme(plot.title = element_text(face = "bold"),
+        legend.position = "bottom",
+        plot.caption = element_text(hjust = 0, colour = "grey40", size = 9))
+

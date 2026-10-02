@@ -65,7 +65,7 @@ ggplot(KV, aes(x = Kvartal, y = `F1 Forbrugertillidsindikatoren`)) +
   # Lidt ekstra plads over og under, så teksterne ikke bliver skåret af
   scale_y_continuous(expand = expansion(mult = 0.15)) +
   # Titel, akser og kilde
-  labs(title = "DST's forbrugertillidsindikator", subtitle = "Kvartalsgennemsnit af månedlige nettotal, 1. kvt. 1996 - 3. kvt. 2026", x = NULL, y = "Nettotal", caption = "Kilde: Danmarks Statistik (FORV1) og egne beregninger") +
+  labs(title = "Forbrugertilliden styrtdykkede i 2022 og er endnu ikke kommet sig", subtitle = "Kvartalsgennemsnit af månedlige nettotal, 1. kvt. 1996 - 3. kvt. 2026", x = "År", y = "Nettotal", caption = "Kilde: Danmarks Statistik (FORV1) og egne beregninger") +
   # Enkelt tema
   theme_minimal() +
   # Fed titel og kilden i venstre side
@@ -114,7 +114,7 @@ ggplot(KV_4_2, aes(x = Kvartal, y = F9)) +
   # Et årstal for hvert andet år
   scale_x_date(date_breaks = "2 years", date_labels = "%Y", expand = c(0.01, 0)) +
   # Titel, akser og kilde
-  labs(title = "Fordelagtigt at anskaffe større forbrugsgoder (F9)", subtitle = "Nettotal, 1. kvt. 2000 - 3. kvt. 2026. Den mørke linje viser gennemsnittet", x = NULL, y = "Nettotal", caption = "Kilde: Danmarks Statistik (FORV1) og egne beregninger") +
+  labs(title = "Lysten til større køb brød sammen i 2022 og ligger stadig under det normale", subtitle = "Nettotal for F9, 1. kvt. 2000 - 3. kvt. 2026. Den mørke linje er gennemsnittet", x = "År", y = "Nettotal", caption = "Kilde: Danmarks Statistik (FORV1) og egne beregninger") +
   # Enkelt tema
   theme_minimal() +
   # Fed titel og kilden i venstre side
@@ -158,17 +158,28 @@ ryd <- function(x) sapply(sub("^CP[A-Z] ", "", x),
 ## Læsbart gruppenavn til akserne
 f22$gruppe <- ryd(f22$FORMAAAL)
 
+# Plot over husholdningernes forbrug i 2022 fordelt på formål
 ggplot(f22, aes(x = reorder(gruppe, value), y = value / 1000)) +
-  # Søjler i orange
+  # Søjler i orange, ét søjle pr. formål, i mia. kr.
   geom_col(fill = "#F16913") +
   # Vandrette søjler, så de lange gruppenavne kan læses
   coord_flip() +
-  # Titel, akser og kilde
-  labs(title = "Husholdningernes forbrug i 2022", subtitle = "Fordelt på formål, løbende priser", x = NULL, y = "Mia. kr.", caption = "Kilde: Danmarks Statistik (NAHC21) og egne beregninger") +
+  # Aksen med værdierne: tal for hver 25. mia. kr., tynde hjælpelinjer for hver 5.
+  scale_y_continuous(breaks = seq(0, 300, by = 25),
+                     minor_breaks = seq(0, 300, by = 5),
+                     expand = expansion(mult = c(0, 0.05))) +
+  # Titel, undertitel, akser og kilde
+  labs(title = "Boligen er husholdningernes største udgiftspost",
+       subtitle = "Husholdningernes forbrug fordelt på formål, 2022, løbende priser",
+       x = NULL,
+       y = "Mia. kr.",
+       caption = "Kilde: Danmarks Statistik (NAHC21) og egne beregninger") +
   # Enkelt tema
   theme_minimal() +
-  # Fed titel og kilden i venstre side
-  theme(plot.title = element_text(face = "bold"), plot.caption = element_text(hjust = 0))
+  # Fed titel, kilden i venstre side og titlen placeret yderst til venstre
+  theme(plot.title = element_text(face = "bold"),
+        plot.caption = element_text(hjust = 0),
+        plot.title.position = "plot")
 
 
 # Behold kædede værdier (2020-priser) uden "I alt"
@@ -190,6 +201,9 @@ vaekst[order(-vaekst$pct), ]
 ## Læsbart gruppenavn til akserne
 vaekst$gruppe <- ryd(vaekst$FORMAAAL)
 
+# Læsbart gruppenavn til akserne (ryd() er din hjælpefunktion fra før)
+vaekst$gruppe <- ryd(vaekst$FORMAAAL)
+
 # Graf med vandrette søjler, farvet efter om væksten er positiv eller negativ
 ggplot(vaekst, aes(x = reorder(gruppe, pct), y = pct, fill = pct > 0)) +
   # Søjlerne (uden forklaringsboks)
@@ -200,12 +214,21 @@ ggplot(vaekst, aes(x = reorder(gruppe, pct), y = pct, fill = pct > 0)) +
   geom_hline(yintercept = 0, colour = "grey40") +
   # Vandrette søjler
   coord_flip() +
-  # Titel, akser og kilde
-  labs(title = "Realvækst i husholdningernes forbrug 2020-2023", subtitle = "Fordelt på formål, 2020-priser, kædede værdier", x = NULL, y = "Vækst i pct.", caption = "Kilde: Danmarks Statistik (NAHC21) og egne beregninger") +
+  # Aksen med værdierne: tal for hver 2,5 procentpoint, tynde hjælpelinjer for hver 0,5
+  scale_y_continuous(breaks = seq(-10, 20, by = 2.5),
+                     minor_breaks = seq(-10, 20, by = 0.5)) +
+  # Titel, undertitel, akser og kilde
+  labs(title = "Fritid, rejser og andre tjenester voksede mest efter 2020, mens fødevarer og boligudstyr faldt",
+       subtitle = "Realvækst 2020-2023 i pct. fordelt på formål, 2020-priser, kædede værdier. 7 af 11 grupper voksede",
+       x = NULL,
+       y = "Vækst i pct.",
+       caption = "Kilde: Danmarks Statistik (NAHC21) og egne beregninger") +
   # Enkelt tema
   theme_minimal() +
-  # Fed titel og kilden i venstre side
-  theme(plot.title = element_text(face = "bold"), plot.caption = element_text(hjust = 0))
+  # Fed titel, kilden i venstre side og titlen yderst til venstre
+  theme(plot.title = element_text(face = "bold"),
+        plot.caption = element_text(hjust = 0),
+        plot.title.position = "plot")
 
 # Opg. 4.4 ----
 
