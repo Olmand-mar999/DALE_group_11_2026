@@ -41,14 +41,36 @@ KV <- KV[order(KV$Kvartal), ]
 # Nulstil rækkenumrene
 rownames(KV) <- NULL
 
-# PLot
+# Find kvartalet med den højeste forbrugertillid
+top <- KV[which.max(KV$"F1 Forbrugertillidsindikatoren"), ]
+
+# Find kvartalet med den laveste forbrugertillid
+bund <- KV[which.min(KV$"F1 Forbrugertillidsindikatoren"), ]
+
 ggplot(KV, aes(x = Kvartal, y = `F1 Forbrugertillidsindikatoren`)) +
-  geom_line(color = "#F39C12", linewidth = 0.55) +
-  geom_hline(yintercept = 0, color = "black", linetype = "dashed", linewidth = 0.4) +
-  scale_x_date(date_breaks = "2 years", date_labels = "%Y", expand = c(0, 0)) +
-  labs(title = "DST's forbrugertillidsindikator", x = "År", y = "Forbrugertillidsindikator") +
+  # Stiplet linje ved 0: over = flest optimister, under = flest pessimister
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
+  # Linjen med forbrugertilliden
+  geom_line(colour = "#F16913", linewidth = 0.8) +
+  # Punkt ved det højeste niveau
+  geom_point(data = top, colour = "#7F2704", size = 3) +
+  # Punkt ved det laveste niveau
+  geom_point(data = bund, colour = "#7F2704", size = 3) +
+  # Tekst ved det højeste punkt
+  geom_text(data = top, label = "Højest: 12,6 (1. kvt. 2006)", vjust = -1, size = 3.5) +
+  # Tekst ved det laveste punkt
+  geom_text(data = bund, label = "Lavest: -32,1 (4. kvt. 2022)", vjust = 2, size = 3.5) +
+  # Et årstal for hvert andet år
+  scale_x_date(date_breaks = "2 years", date_labels = "%Y", expand = c(0.01, 0)) +
+  # Lidt ekstra plads over og under, så teksterne ikke bliver skåret af
+  scale_y_continuous(expand = expansion(mult = 0.15)) +
+  # Titel, akser og kilde
+  labs(title = "DST's forbrugertillidsindikator", subtitle = "Kvartalsgennemsnit af månedlige nettotal, 1. kvt. 1996 - 3. kvt. 2026", x = NULL, y = "Nettotal", caption = "Kilde: Danmarks Statistik (FORV1) og egne beregninger") +
+  # Enkelt tema
   theme_minimal() +
-  theme(plot.title = element_text(size = 16, hjust = 0.5))
+  # Fed titel og kilden i venstre side
+  theme(plot.title = element_text(face = "bold"), plot.caption = element_text(hjust = 0))
+
 
 
 # Opg 4.2: Gennemsnit af underspørgsmål----
@@ -80,13 +102,25 @@ KV_4_2$Kvartal[which.max(F9)]
 # Hvilket kvartal var de mest negative (laveste F9)?
 KV_4_2$Kvartal[which.min(F9)]
 
+# Sørg for at Kvartal er en dato
+KV_4_2$Kvartal <- as.Date(KV_4_2$Kvartal)
 
-# Plot F9 over tid med nullinjen som reference
+# Graf over F9
 ggplot(KV_4_2, aes(x = Kvartal, y = F9)) +
-  geom_line(color = "#F39C12", linewidth = 0.55) +
-  geom_hline(yintercept = 0, linetype = "dashed") +
-  labs(title = "F9: Fordelagtigt at anskaffe større forbrugsgoder", x = "År", y = "Nettotal") +
-  theme_minimal()
+  # Vandret linje ved gennemsnittet
+  geom_hline(yintercept = mean(KV_4_2$F9, na.rm = TRUE), colour = "#7F2704", linewidth = 0.6) +
+  # Linjen med F9
+  geom_line(colour = "#F16913", linewidth = 0.8) +
+  # Et årstal for hvert andet år
+  scale_x_date(date_breaks = "2 years", date_labels = "%Y", expand = c(0.01, 0)) +
+  # Titel, akser og kilde
+  labs(title = "Fordelagtigt at anskaffe større forbrugsgoder (F9)", subtitle = "Nettotal, 1. kvt. 2000 - 3. kvt. 2026. Den mørke linje viser gennemsnittet", x = NULL, y = "Nettotal", caption = "Kilde: Danmarks Statistik (FORV1) og egne beregninger") +
+  # Enkelt tema
+  theme_minimal() +
+  # Fed titel og kilden i venstre side
+  theme(plot.title = element_text(face = "bold"), plot.caption = element_text(hjust = 0))
+
+
 
 # Opg. 4.3: De 11 grupper af forbrug ----
 
@@ -124,12 +158,17 @@ ryd <- function(x) sapply(sub("^CP[A-Z] ", "", x),
 ## Læsbart gruppenavn til akserne
 f22$gruppe <- ryd(f22$FORMAAAL)
 
-## Søjlediagram sorteret efter størrelse, vandret så de lange navne kan være på y-aksen
 ggplot(f22, aes(x = reorder(gruppe, value), y = value / 1000)) +
-  geom_col(fill = "#F39C12") +
+  # Søjler i orange
+  geom_col(fill = "#F16913") +
+  # Vandrette søjler, så de lange gruppenavne kan læses
   coord_flip() +
-  labs(title = "Husholdningernes forbrug i 2022", x = NULL, y = "Mia. kr. (løbende priser)") +
-  theme_minimal()
+  # Titel, akser og kilde
+  labs(title = "Husholdningernes forbrug i 2022", subtitle = "Fordelt på formål, løbende priser", x = NULL, y = "Mia. kr.", caption = "Kilde: Danmarks Statistik (NAHC21) og egne beregninger") +
+  # Enkelt tema
+  theme_minimal() +
+  # Fed titel og kilden i venstre side
+  theme(plot.title = element_text(face = "bold"), plot.caption = element_text(hjust = 0))
 
 
 # Behold kædede værdier (2020-priser) uden "I alt"
@@ -151,14 +190,22 @@ vaekst[order(-vaekst$pct), ]
 ## Læsbart gruppenavn til akserne
 vaekst$gruppe <- ryd(vaekst$FORMAAAL)
 
-## Søjler for procentvis vækst, farvet efter om væksten er positiv eller negativ
+# Graf med vandrette søjler, farvet efter om væksten er positiv eller negativ
 ggplot(vaekst, aes(x = reorder(gruppe, pct), y = pct, fill = pct > 0)) +
+  # Søjlerne (uden forklaringsboks)
   geom_col(show.legend = FALSE) +
-  scale_fill_manual(values = c("TRUE" = "#F39C12", "FALSE" = "grey60")) +
+  # Orange for vækst, grå for fald
+  scale_fill_manual(values = c("TRUE" = "#F16913", "FALSE" = "grey60")) +
+  # Linje ved 0
+  geom_hline(yintercept = 0, colour = "grey40") +
+  # Vandrette søjler
   coord_flip() +
-  labs(title = "Realvækst i forbrug 2020-2023", x = NULL, y = "Vækst i pct. (2020-priser, kædede værdier)") +
-  theme_minimal()
-
+  # Titel, akser og kilde
+  labs(title = "Realvækst i husholdningernes forbrug 2020-2023", subtitle = "Fordelt på formål, 2020-priser, kædede værdier", x = NULL, y = "Vækst i pct.", caption = "Kilde: Danmarks Statistik (NAHC21) og egne beregninger") +
+  # Enkelt tema
+  theme_minimal() +
+  # Fed titel og kilden i venstre side
+  theme(plot.title = element_text(face = "bold"), plot.caption = element_text(hjust = 0))
 
 # Opg. 4.4 ----
 

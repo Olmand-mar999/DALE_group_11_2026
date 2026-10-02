@@ -133,3 +133,4 @@ coef(model_DST)[1] + coef(model_DST)[2] * ny$DST_FTI
 # Forudsigelse med usikkerhedsinterval (95 pct.)
 predict(model_DI,  newdata = ny, interval = "prediction")
 predict(model_DST, newdata = ny, interval = "prediction")
+
