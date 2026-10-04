@@ -1,5 +1,6 @@
 library(dkstat)
 library(tidyr)
+library(ggplot2)
 
 ## Opgave 2.1 – Opdatering af DI’s forbrugertillidsindikator ----
 
@@ -134,8 +135,6 @@ coef(model_DST)[1] + coef(model_DST)[2] * ny$DST_FTI
 predict(model_DI,  newdata = ny, interval = "prediction")
 predict(model_DST, newdata = ny, interval = "prediction")
 
-# ggplot skal indlæses til plottet
-library(ggplot2)
 
 # --- Data til plottet ---
 # Faktisk realvækst i estimationsperioden
@@ -174,10 +173,52 @@ prognose_linje <- rbind(sidste, prognose)
 # Tekst til søjlerne i forklaringsboksen
 txt_faktisk <- "Faktisk realvækst (kædede værdier)"
 
-# ggplot skal indlæses til plottet
-library(ggplot2)
 
 # --- Data til plottet ---
+# --- Plot for forventede realvækst --
+# Forudsigelser med 95 %-prædiktionsinterval fra begge modeller
+pi_DI  <- predict(model_DI,  newdata = ny, interval = "prediction")
+pi_DST <- predict(model_DST, newdata = ny, interval = "prediction")
+
+# Saml i én tabel og rund af til to decimaler
+interval <- data.frame(model = c("Model med DI-FTI", "Model med DST-FTI"),
+                       fit = round(c(pi_DI[, "fit"], pi_DST[, "fit"]), 2),
+                       lwr = round(c(pi_DI[, "lwr"], pi_DST[, "lwr"]), 2),
+                       upr = round(c(pi_DI[, "upr"], pi_DST[, "upr"]), 2))
+
+# Lås rækkefølgen, så DI står øverst
+interval$model <- factor(interval$model, levels = rev(interval$model))
+
+# Hjælpefunktion: tal med to decimaler og komma
+komma <- function(x) formatC(x, format = "f", digits = 2, decimal.mark = ",")
+
+p_interval <- ggplot(interval, aes(y = model)) +
+  # Stiplet linje ved 0 pct.
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "#7F2704") +
+  # Bjælken for intervallet
+  geom_segment(aes(x = lwr, xend = upr, yend = model, colour = model), linewidth = 14, alpha = 0.3, lineend = "round") +
+  # Punktet for forudsigelsen
+  geom_point(aes(x = fit, colour = model), size = 7) +
+  # Tallet for forudsigelsen under punktet, til venstre for nul-linjen
+  geom_text(aes(x = fit, label = paste0(komma(fit), " %"), colour = model), vjust = 2.6, hjust = 1, size = 5.5, fontface = "bold") +
+  # Grænserne for intervallet i hver ende
+  geom_text(aes(x = lwr, label = komma(lwr)), hjust = 1.8, size = 4.5, colour = "#7F2704") +
+  geom_text(aes(x = upr, label = paste0("+", komma(upr))), hjust = -0.8, size = 4.5, colour = "#7F2704") +
+  # Orange til DI, mørkebrun til DST
+  scale_colour_manual(values = c("Model med DI-FTI" = "#F16913", "Model med DST-FTI" = "#7F2704"), guide = "none") +
+  # Plads til tallene i begge ender
+  scale_x_continuous(limits = c(-7, 6), breaks = seq(-6, 4, 2)) +
+  labs(x = "Årlig realvækst i husholdningernes forbrug (pct.)", y = NULL) +
+  theme_minimal() +
+  # Mørkebrun tekst, ingen vandrette gitterlinjer, gennemsigtig baggrund
+  theme(panel.grid.major.y = element_blank(), panel.grid.minor = element_blank(),
+        axis.text.y = element_text(size = 14, face = "bold", colour = "#7F2704"),
+        axis.text.x = element_text(size = 11, colour = "#7F2704"),
+        axis.title.x = element_text(size = 11, colour = "#7F2704"),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        panel.background = element_rect(fill = "transparent", colour = NA))
+
+
 # Faktisk realvækst i estimationsperioden
 faktisk <- data.frame(kvartal = d_est$Kvartal,
                       vaekst  = d_est$Forbrug_vaekst,
@@ -214,7 +255,8 @@ prognose_linje <- rbind(sidste, prognose)
 # Tekst til søjlerne i forklaringsboksen
 txt_faktisk <- "Faktisk realvækst (kædede værdier)"
 
-# --- Plot ---
+
+# --- Plot for udvikling af realvækst ---
 ggplot() +
   # Søjler for faktisk realvækst, én pr. kvartal (bredde i dage)
   geom_col(data = faktisk, aes(kvartal, vaekst, fill = txt_faktisk), width = 80) +
