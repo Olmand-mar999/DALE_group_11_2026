@@ -293,3 +293,49 @@ ggplot() +
         legend.position = "bottom",
         plot.caption = element_text(hjust = 0, colour = "grey40", size = 9))
 
+
+# Forudsigelser for 3. kvt. 2026 fra begge modeller
+pred_DI  <- predict(model_DI,  newdata = ny)
+pred_DST <- predict(model_DST, newdata = ny)
+
+pred_DI
+pred_DST
+
+# Helårsvurdering for 2026: gennemsnit af faktisk vækst i 1. og 2. kvt. og DI-modellens 3. kvt.
+kvt_2026 <- d_est$Forbrug_vaekst[d_est$Kvartal >= as.Date("2026-01-01")]
+prognose_2026 <- mean(c(kvt_2026, pred_DI))
+prognose_2026
+
+# Prognoserne: vores to kvartalsmodeller, vores helårsvurdering og de andre
+prog <- data.frame(kilde = c("Vores forventning for 1-3. kvt 2026", "Nationalbanken (mar. 2026)", "Økonomiministeriet (aug. 2026)", "DI (nov. 2025)"),
+                   vaekst = c(round(prognose_2026, 1), 1.9, 2.2, 2.9),
+                   type = c("vores", "andre", "andre", "andre"))
+
+# Lås rækkefølgen, så vores modeller står øverst
+prog$kilde <- factor(prog$kilde, levels = rev(prog$kilde))
+
+p_prog <- ggplot(prog, aes(x = kilde, y = vaekst, fill = type)) +
+  # Lodret linje ved 0
+  geom_hline(yintercept = 0, colour = "#7F2704", linewidth = 0.4) +
+  # Søjlerne
+  geom_col(width = 0.65, show.legend = FALSE) +
+  # Tallet for enden af søjlen: til venstre for negative, til højre for positive
+  geom_text(aes(label = sub("\\.", ",", as.character(vaekst)), hjust = ifelse(vaekst < 0, 1.2, -0.2)), size = 4.5, colour = "#7F2704") +
+  # Lys orange, orange og mørkebrun
+  scale_fill_manual(values = c("kvartal" = "#FDAE6B", "vores" = "#F16913", "andre" = "#7F2704")) +
+  # Plads til tallene i begge ender
+  scale_y_continuous(limits = c(-1.5, 3.5), breaks = seq(-1, 3, 1)) +
+  # Vandrette søjler
+  coord_flip() +
+  labs(x = NULL, y = "Forventet realvækst i privatforbruget (pct.)") +
+  theme_minimal() +
+  # Mørkebrun tekst, ingen vandrette gitterlinjer, gennemsigtig baggrund
+  theme(panel.grid.major.y = element_blank(), panel.grid.minor = element_blank(),
+        axis.text.y = element_text(size = 12, colour = "#7F2704"),
+        axis.text.x = element_text(size = 11, colour = "#7F2704"),
+        axis.title.x = element_text(size = 11, colour = "#7F2704"),
+        plot.background = element_rect(fill = "transparent", colour = NA),
+        panel.background = element_rect(fill = "transparent", colour = NA))
+
+# Vis grafen
+p_prog
