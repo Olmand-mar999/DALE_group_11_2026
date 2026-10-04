@@ -316,6 +316,7 @@ for (navn in y_navne) {
   }
 }
 
+options(scipen=999)
 # Tjek: skal give 22
 length(regressioner)
 
