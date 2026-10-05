@@ -68,6 +68,16 @@ mean_data <- colMeans(realvaekst[,-1])
 mean_df <- data.frame(Land = names(realvaekst)[-1],
                       gennemsnit = round(mean_data,2))
 
+# Barplot over gennemsnitlig realvækst
+ggplot(mean_df, aes(x = Land, y = gennemsnit)) +
+  geom_col(fill = "steelblue") +
+  labs(
+    title = "Gennemsnitlig realvækst i husholdningernes forbrug",
+    x = "Land",
+    y = "Gennemsnitlig realvækst (%)"
+  ) +
+  theme_minimal()
+
 
 # Opg 5.3-----------------------------------------------------------------------
 
@@ -83,6 +93,16 @@ mean_coronafri <- colMeans(realvaekst_coronafri[,-1])
 mean_coronafri_df <- data.frame(Land = names(realvaekst_coronafri)[-1],
                       gennemsnit = round(mean_coronafri,2))
 
+# Barplot over gennemsnitlig realvækst
+ggplot(mean_coronafri_df, aes(x = Land, y = gennemsnit)) +
+  geom_col(fill = "orange") +
+  labs(
+    title = "Gennemsnitlig realvækst i husholdningernes forbrug",
+    x = "Land",
+    y = "Gennemsnitlig realvækst (%)"
+  ) +
+  theme_minimal()
+
 # Opg 5.4-----------------------------------------------------------------------
 
 # data under coronaperiden gemmes
@@ -92,3 +112,125 @@ mean_corona <- colMeans(realvaekst_corona[,-1])
 
 mean_corona_df <- data.frame(Land = names(realvaekst_corona)[-1],
                                 gennemsnit = round(mean_corona,2))
+
+# Barplot over gennemsnitlig realvækst
+ggplot(mean_corona_df, aes(x = Land, y = gennemsnit)) +
+  geom_col(fill = "orange") +
+  labs(
+    title = "Gennemsnitlig realvækst i husholdningernes forbrug",
+    x = "Land",
+    y = "Gennemsnitlig realvækst (%)"
+  ) +
+  theme_minimal()
+
+
+library(tidyr)
+library(forcats)
+
+library(zoo)
+
+corona_slut <- as.Date(as.yearqtr(realvaekst$Tid[datacut_2022], format = "%Y-Q%q"), 
+                       frac = 1)
+
+corona_start <- tilDato(realvaekst$Tid[datacut_2020])
+corona_slut  <- tilDato(realvaekst$Tid[datacut_2022])
+
+# Samlet tabel med de tre gennemsnit pr. land (join på Land, ikke på rækkefølge)
+gns <- mean_df |>
+  rename(hele = gennemsnit) |>
+  left_join(rename(mean_coronafri_df, uden = gennemsnit), by = "Land") |>
+  left_join(rename(mean_corona_df,    under = gennemsnit), by = "Land")
+
+# Graf 1 (5.1 + 5.3): Tidsserie pr. land med corona-perioden og gennemsnittene ----
+lang <- realvaekst |>
+  pivot_longer(-Tid, names_to = "Land", values_to = "vaekst") |>
+  mutate(dato = tilDato(Tid))
+
+ggplot(lang, aes(dato, vaekst)) +
+  annotate("rect", xmin = corona_start, xmax = corona_slut,
+           ymin = -Inf, ymax = Inf, alpha = 0.15) +
+  geom_hline(yintercept = 0, linewidth = 0.3) +
+  geom_line(colour = "grey30") +
+  geom_hline(data = gns, aes(yintercept = hele,  linetype = "Hele perioden"),
+             colour = "firebrick") +
+  geom_hline(data = gns, aes(yintercept = uden, linetype = "Uden corona"),
+             colour = "steelblue") +
+  facet_wrap(~Land) +
+  labs(x = NULL, y = "Årlig realvækst i privatforbrug (pct.)",
+       linetype = "Gennemsnit",
+       title = "Realvækst pr. kvartal, med corona-perioden skraveret")
+
+# Graf 2 (5.2): Højeste gennemsnitlige vækst, hele perioden ----
+ggplot(gns, aes(fct_reorder(Land, hele), hele)) +
+  geom_col(fill = "orange") +
+  geom_text(aes(label = round(hele, 2)), hjust = -0.1) +
+  coord_flip() +
+  labs(
+    x = NULL,
+    y = "Gns. årlig realvækst (pct.)",
+    title = "Gennemsnitlig realvækst, hele perioden",
+    caption = "Kilde: Eurostat, namq_10_fcs og egne beregninger"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.background = element_rect(fill = "white", colour = NA),
+    plot.background = element_rect(fill = "white", colour = NA)
+  )
+
+# Graf 3 (5.3): Coronaens effekt på gennemsnittet ----
+
+effekt <- gns |> mutate(effekt = uden - hele)   # positiv = corona trak gennemsnittet ned
+
+ggplot(effekt, aes(fct_reorder(Land, effekt), effekt)) +
+  geom_col(fill = "orange") +
+  geom_text(
+    aes(
+      label = round(effekt, 2),
+      hjust = ifelse(effekt < 0, 1.1, -0.1)
+    )
+  ) +
+  coord_flip() +
+  labs(
+    x = NULL,
+    y = "Forskel i gns. realvækst (procentpoint)",
+    title = "Ændring i gennemsnit hvis corona (2020-Q1 - 2022-Q2) fratrækkes perioden",
+    caption = "Kilde: Eurostat, namq_10_fcs og egne beregninger"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.background = element_rect(fill = "white", colour = NA),
+    plot.background = element_rect(fill = "white", colour = NA)
+  )
+
+
+
+# Graf 4 (5.4): Gennemsnit uden vs. under corona ----
+ggplot(gns, aes(y = fct_reorder(Land, under))) +
+  geom_vline(xintercept = 0, linewidth = 0.3) +
+  geom_segment(aes(x = uden, xend = under, yend = Land), colour = "grey60") +
+  geom_point(aes(x = uden,  colour = "Uden corona"),  size = 3) +
+  geom_point(aes(x = under, colour = "Under corona"), size = 3) +
+  labs(x = "Gns. årlig realvækst (pct.)", y = NULL, colour = NULL,
+       title = "Gennemsnitlig realvækst uden og under corona")
+
+# Graf: Gennemsnitlig realvækst under corona
+ggplot(mean_corona_df, aes(fct_reorder(Land, gennemsnit), gennemsnit)) +
+  geom_col(fill = "orange") +
+  geom_text(
+    aes(
+      label = round(gennemsnit, 2),
+      hjust = ifelse(gennemsnit < 0, 1.1, -0.1)
+    )
+  ) +
+  coord_flip() +
+  labs(
+    x = NULL,
+    y = "Gns. årlig realvækst (pct.)",
+    title = "Gennemsnitlig realvækst under corona (2020-Q1 - 2022-Q2)",
+    caption = "Kilde: Eurostat, namq_10_fcs og egne beregninger"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.background = element_rect(fill = "white", colour = NA),
+    plot.background = element_rect(fill = "white", colour = NA)
+  )

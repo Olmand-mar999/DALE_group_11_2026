@@ -96,14 +96,19 @@ Summary_DST <- summary(model_DST)
 # y^ = B^0 + B^1 * X
 
 # DI
+Summary_DI$coefficients
 DI_B0 <- Summary_DI$coefficients[1,1]
 DI_B1 <- Summary_DI$coefficients[2,1]
+DI_B0
+DI_B1
 
 y_pred_DI <- DI_B0 + DI_B1 * d_est$DI_FTI
 
 # DST
 DST_B0 <- Summary_DST$coefficients[1,1]
 DST_B1 <- Summary_DST$coefficients[2,1]
+DST_B0
+DST_B1
 
 y_pred_DST <- DST_B0 + DST_B1 * d_est$DST_FTI
 
@@ -170,10 +175,15 @@ y_pred_DST <- predict(model_DST)
 y <- d_est$Forbrug_vaekst
 RSS_DI <- sum((y - y_pred_DI)^2)
 TSS_DI <- sum((y - mean(y))^2)
+RSS_DI
+TSS_DI
+
 
 RSS_DST <- sum((y - y_pred_DST)^2)
 TSS_DST <- sum((y - mean(y))^2)
-TSS_DI
+RSS_DST
+TSS_DST
+
 
 # 3.4 ------------------------------------------------------------------------
 
