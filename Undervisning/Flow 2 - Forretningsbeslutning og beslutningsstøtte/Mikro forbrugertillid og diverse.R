@@ -43,7 +43,7 @@ bp <- barplot(
   main = "Realvæksten er positiv næsten 75% af gangene over tid ",
   names.arg = c("Negativ", "Positiv"),
   las = 1,
-  col = c("#D55E00", "#F4A261")
+  col = c("#7D9263", "#C9D3BE")
 )
 abline(0,0)
 
