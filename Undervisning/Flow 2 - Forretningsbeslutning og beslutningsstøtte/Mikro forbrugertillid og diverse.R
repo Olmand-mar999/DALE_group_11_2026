@@ -180,6 +180,38 @@ F12 <- KV[[grep("^F12 ",  colnames(KV))]]  # Regner med at kunne spare op i de k
 F13 <- KV[[grep("^F13 ",  colnames(KV))]]  # Familiens økonomiske situation lige nu: kan spare/penge slår til/ bruger mere end man tjener
 colnames(KV)
 
+F_total <- data.frame(
+  F2 = F2,
+  F3 = F3,
+  F4 = F4,
+  F5 = F5,
+  F6 = F6,
+  F7 = F7,
+  F8 = F8,
+  F9 = F9,
+  F10 = F10,
+  F12 = F12,
+  F13 = F13
+)
+
+test_liste <- combn(F_total, 2, simplify = F)
+test_liste_2 <- test_liste[[1]]
+test_liste_3 <- as.data.frame(rowMeans(test_liste_2))
+
+
+liste <- list()
+for (i in 1:ncol(F_total)){
+  data <- combn(F_total, i, simplify = F)
+  liste <- c(liste, data)
+}
+
+indikator_liste <- data.frame(matrix(nrow = nrow(F_total), ncol = 0))
+for (i in 1:length(liste)) {
+  means <- rowMeans(liste[[i]])
+  indikator_liste <- cbind(indikator_liste, means)
+  colnames(indikator_liste)[i] <- paste(colnames(liste[[i]]), collapse = "_")
+}
+
 
 # Mikro spørgsmål fra artiklen
 Artikel <- data.frame(Kvartal = KV$Kvartal,
