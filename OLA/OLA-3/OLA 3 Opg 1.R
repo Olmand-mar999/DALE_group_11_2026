@@ -147,7 +147,7 @@ indikator_liste <- data.frame(matrix(nrow = nrow(F_total), ncol = 0))
 for (i in 1:length(liste)) {
   means <- rowMeans(liste[[i]]) # Beregner rowmeans af alle listeelementer
   indikator_liste <- cbind(indikator_liste, means) # Sætter dem sammen i samme dataframe
-  colnames(indikator_liste)[i] <- paste(colnames(liste[[i]]), collapse = "_")
+  colnames(indikator_liste)[i] <- paste(colnames(liste[[i]]), collapse = "+")
   # Indsætter navnene til at være en kombination af alle spørgsmål der indgår i indikatoren
 }
 
