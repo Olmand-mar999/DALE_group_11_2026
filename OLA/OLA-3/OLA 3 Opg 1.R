@@ -92,44 +92,37 @@ F_total <- data.frame(
 rownames(F_total) <- format(KV$Kvartal)
 
 
-# ---- Mikro spørgsmål fra artiklen ----
+# ---- Alle kendte indikatorer ----
 
-Artikel <- data.frame(Kvartal = KV$Kvartal,
-                      Q1 = F2,
-                      Q2 = F3,
-                      Q8 = F9,
-                      Q9 = F10)
-# Tilføj gennemsnit
-Artikel$Gennemsnit <- rowMeans(Artikel[,2:ncol(Artikel)])
+# Artiklens mikrospørgsmål
+MCCI <- data.frame(Kvartal = KV$Kvartal, 
+                   Indikator = (F2 + F3 + F9 + F10) / 4)
 
-# Vores vurdering af mikrospørgsmål
-vores_vurdering <- data.frame(Kvartal = KV$Kvartal,
-                              F2 = F2,
-                              F3 = F3,
-                              F9 = F9,
-                              F10 = F10,
-                              F12 = F12,
-                              F13 = F13)
+# Europas indikator spørgsmål
+EU_CCI <- data.frame(Kvartal = KV$Kvartal, 
+                     Indikator = (F3 + F5 + F8 + F12) / 4)
 
-vores_vurdering$Gennemsnit <- rowMeans(vores_vurdering[,2:ncol(vores_vurdering)])
+# Alle mikrospørgsmål
+Alle_mikro <- data.frame(Kvartal = KV$Kvartal,
+                         Indikator = (F2 + F3 + F9 + F10 + F12 + F13) / 6)
 
-# Merge både artiklens indikatorer og vores egen med forbrugsdataen
-Artikel_merge <- merge(Artikel, Forbrugsdata, by = "Kvartal")
-Vores_merge <- merge(vores_vurdering, Forbrugsdata, by = "Kvartal")
+DI <- data.frame(Kvartal = KV$Kvartal,
+                 Indikator = (F2 + F4 + F9 + F10) / 4)
 
-# Lav lineær regression med artiklens indikator og forbrugsdataen
-model_artikel <- lm(Forbrug_vaekst ~ Gennemsnit, data = Artikel_merge)
+DST <- data.frame(Kvartal = KV$Kvartal,
+                  Indikator = (F2 + F3 + F4 + F5 + F9) / 5)
 
-# Lav summary og udtræk R^2
-summary_artikel <- summary(model_artikel)
-summary_artikel$r.squared
+#bench <- c(EU_CCI = "F3+F5+F8+F12", MCCI = "F2+F3+F9+F10", DI = "F2+F4+F9+F10", DST = "F2+F3+F4+F5+F9")
 
-# Lav lineær regression med vores mikro-indikator og forbrugsdataen
-model_vores <- lm(Forbrug_vaekst ~ Gennemsnit, data = Vores_merge)
+# Merge alle de forskellige indikatorer med forbrugsdataen
+MCCI_merge <- merge(MCCI, Forbrugsdata, by = "Kvartal")
+EU_CCI_merge <- merge(EU_CCI, Forbrugsdata, by = "Kvartal")
+Mikro_merge <- merge(Alle_mikro, Forbrugsdata, by = "Kvartal")
+DI_merge <- merge(DI, Forbrugsdata, by = "Kvartal")
+DST_merge <- merge(DST, Forbrugsdata, by = "Kvartal")
 
-# Lav summary og udtræk R^2
-summary_vores <- summary(model_vores)
-summary_vores$r.squared
+
+# ---- Find alle kombinationer af indikatorer ----
 
 # Lav liste der indeholder alle kombinationer
 liste <- list()
@@ -159,6 +152,8 @@ rownames(Forbrug) <- format(Forbrugsdata$Kvartal)
 faelles <- merge(Forbrug, indikator_liste, by = "row.names")
 colnames(faelles)[1] <- "Kvartal"
 
+# ---- Find den bedste kombination af indikatorer ----
+
 # Beregn korrelationen mellem hver kombination og forbrugsvæksten
 M <- as.matrix(faelles[, -(1:2)])
 y <- faelles$realvaekst
@@ -167,4 +162,33 @@ y <- faelles$realvaekst
 forklaringsgrader <- data.frame(
   korrelation = cor(M, y)[, 1],
   R = (cor(M, y)[, 1])^2)
+
+
+# ---- Gem de 5 indikatorer med højest r værdi ----
+
+# Vis hvilke rækker der har de højeste forklaringsgrader og gem dem
+top_5_indexer <- order(forklaringsgrader$R, decreasing = TRUE)[1:5]
+top_5 <- forklaringsgrader[top_5_indexer,]
+
+
+# ---- Sammenlign indikatorer ----
+
+# Lav et dataframe der indeholder alle de indikatorer vi kender
+alle_indikatorer <- cbind(MCCI_merge$Indikator, 
+                          EU_CCI_merge$Indikator, 
+                          Mikro_merge$Indikator, 
+                          DI_merge$Indikator, 
+                          DST_merge$Indikator)
+
+# Sæt kolonnenavnene til at matche
+colnames(alle_indikatorer) <- c("MCCI", "EU_CCI", "Mikro", "DI", "DST")
+
+# Lav et dataframe der indeholder korrelation og R^2 for alle vores kendte indikatorer
+Kendte_indikatorer <- data.frame(
+  korrelation = cor(as.matrix(alle_indikatorer), y),
+  R = cor(as.matrix(alle_indikatorer), y)^2
+)
+
+# Sammensæt
+sammenligning <- rbind(top_5, Kendte_indikatorer)
 
