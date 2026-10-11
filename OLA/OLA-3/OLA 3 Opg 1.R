@@ -7,7 +7,7 @@ options(scipen = 999)
 Forbrugsdata <- dst_get_data("NKN1", query = list(TRANSAKT = "*", PRISENHED = "*", SÆSON = "*", Tid = "*"))
 
 ##### Måske skal P31S14D eller P31S1MD bruges #####
-# Behold husholdningernes forbrugsudgifter (P31S14D), kædede værdier i mia. kr. (LKV_M), sæsonkorrigeret (Y)
+# Husholdningernes forbrugsudgifter (P31S14D), kædede værdier i mia. kr. (LKV_M), sæsonkorrigeret (Y)
 Forbrugsdata <- Forbrugsdata[grepl("^P31S14D", Forbrugsdata$TRANSAKT) &
                                grepl("^LKV_M ", Forbrugsdata$PRISENHED) &
                                grepl("^Y ", Forbrugsdata$SÆSON), ]
@@ -29,7 +29,6 @@ Forbrugsdata <- Forbrugsdata[Forbrugsdata$Kvartal >= as.Date("2000-01-01"), ]
 
 
 # ---- Hent forbrugertillidsundersøgelsen ----
-
 Forventninger <- dst_get_data("FORV1", query = list(INDIKATOR = "*", Tid = "*"))
 
 # Tidskolonne sættes til datoformat
