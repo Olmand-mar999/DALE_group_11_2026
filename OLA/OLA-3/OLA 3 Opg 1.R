@@ -1,9 +1,16 @@
+# =====================================================================
+# 0. OPSÆTNING
+# =====================================================================
 library(dkstat)
 library(caret)
 options(scipen = 999)
 
-# ---- Hentning af forbrugsdata ----
 
+# =====================================================================
+# 1. FORBRUGSDATA
+# =====================================================================
+
+# ---- Hentning af forbrugsdata ----
 Forbrugsdata <- dst_get_data("NKN1", query = list(TRANSAKT = "*", PRISENHED = "*", SÆSON = "*", Tid = "*"))
 
 ##### Måske skal P31S14D eller P31S1MD bruges #####
@@ -28,21 +35,28 @@ Forbrugsdata <- data.frame(Kvartal = as.Date(Forbrugsdata$TID[5:n], tz = "Europe
 Forbrugsdata <- Forbrugsdata[Forbrugsdata$Kvartal >= as.Date("2000-01-01"), ]
 
 
-# ---- Hent forbrugertillidsundersøgelsen ----
+# =====================================================================
+# 2. FORBRUGERTILLIDSUNDERSØGELSEN (FORVENTNINGER)
+# =====================================================================
+
+# ---- Hentning ----
 Forventninger <- dst_get_data("FORV1", query = list(INDIKATOR = "*", Tid = "*"))
 
+# ---- Tid og afgrænsning ----
 # Tidskolonne sættes til datoformat
 Forventninger$TID <- as.Date(Forventninger$TID, tz = "Europe/Copenhagen")
 
 # Behold kun rækker fra og med 1. januar 1998
 Forventninger <- Forventninger[Forventninger$TID >= as.Date("2000-01-01"), ]
 
+# ---- Aggregering til kvartaler ----
 # Placér hver måned i sit kvartal. Kvartalet får datoen på kvartalets første dag
 Forventninger$Kvartal <- as.Date(cut(Forventninger$TID, "quarter"))
 
 # Beregn gennemsnittet af value for hver kombination af kvartal og indikator
 KV_lang <- aggregate(value ~ Kvartal + INDIKATOR, data = Forventninger, FUN = mean)
 
+# ---- Fra lang til bred tabel ----
 # Gør tabellen "bred": én række pr. kvartal og én kolonne pr. indikator
 KV <- reshape(KV_lang, idvar = "Kvartal", timevar = "INDIKATOR", direction = "wide")
 
@@ -50,8 +64,11 @@ KV <- reshape(KV_lang, idvar = "Kvartal", timevar = "INDIKATOR", direction = "wi
 names(KV) <- sub("^value\\.", "", names(KV))
 
 
-# ---- Saml alle relevante spørgsmål i ny dataframe ----
+# =====================================================================
+# 3. SPØRGSMÅL FRA FORBRUGERTILLIDSUNDERSØGELSEN
+# =====================================================================
 
+# ---- Udtræk af de enkelte spørgsmål ----
 # Er artiklens forbrugertillidsindikator med mikro bedre end vores?
 # Alle spørgsmål
 F2  <- KV[[grep("^F2 ",  colnames(KV))]]   # Familiens økonomi i dag vs. for et år siden
@@ -67,11 +84,13 @@ F11 <- KV[[grep("^F11 ",  colnames(KV))]]  # Anser det som fornuftigt at spare o
 F12 <- KV[[grep("^F12 ",  colnames(KV))]]  # Regner med at kunne spare op i de kommende 12 måneder
 F13 <- KV[[grep("^F13 ",  colnames(KV))]]  # Familiens økonomiske situation lige nu: kan spare/penge slår til/ bruger mere end man tjener
 
+# ---- Vend fortegn ----
 # Spørgsmål hvor "stigning" er dårligt, og som derfor vendes (priser og arbejdsløshed)
 F6 <- F6 * (-1)
 F7 <- F7 * (-1)
 F8 <- F8 * (-1)
 
+# ---- Saml spørgsmålene ----
 # Saml alle spørgsmål i et dataframe
 F_total <- data.frame(
   F2 = F2,
@@ -91,7 +110,11 @@ F_total <- data.frame(
 rownames(F_total) <- format(KV$Kvartal)
 
 
-# ---- Alle kendte indikatorer ----
+# =====================================================================
+# 4. KENDTE INDIKATORER
+# =====================================================================
+
+# ---- Definition af indikatorerne ----
 
 # Artiklens mikrospørgsmål
 MCCI <- data.frame(Kvartal = KV$Kvartal, 
@@ -113,6 +136,7 @@ DST <- data.frame(Kvartal = KV$Kvartal,
 
 #bench <- c(EU_CCI = "F3+F5+F8+F12", MCCI = "F2+F3+F9+F10", DI = "F2+F4+F9+F10", DST = "F2+F3+F4+F5+F9")
 
+# ---- Merge med forbrugsdata ----
 # Merge alle de forskellige indikatorer med forbrugsdataen
 MCCI_merge <- merge(MCCI, Forbrugsdata, by = "Kvartal")
 EU_CCI_merge <- merge(EU_CCI, Forbrugsdata, by = "Kvartal")
@@ -121,7 +145,11 @@ DI_merge <- merge(DI, Forbrugsdata, by = "Kvartal")
 DST_merge <- merge(DST, Forbrugsdata, by = "Kvartal")
 
 
-# ---- Find alle kombinationer af indikatorer ----
+# =====================================================================
+# 5. ALLE KOMBINATIONER AF INDIKATORER
+# =====================================================================
+
+# ---- Generér alle kombinationer ----
 
 # Lav liste der indeholder alle kombinationer
 liste <- list()
@@ -131,6 +159,8 @@ for (i in 1:ncol(F_total)){
   data <- combn(F_total, i, simplify = F) # Gemmer alle kombinationer fra 1 til 11.
   liste <- c(liste, data) # Samler dem i en lang liste
 }
+
+# ---- Beregn gennemsnit for hver kombination ----
 
 # Lav en tom dataframe der skal indeholde alle indikatorerne
 indikator_liste <- data.frame(matrix(nrow = nrow(F_total), ncol = 0))
@@ -143,6 +173,8 @@ for (i in 1:length(liste)) {
   # Indsætter navnene til at være en kombination af alle spørgsmål der indgår i indikatoren
 }
 
+# ---- Klargør forbrugsdata og merge ----
+
 # Brug kvartalsdatoen som rækkenavn, i forbrugsdataen
 Forbrug <- data.frame(realvaekst = Forbrugsdata$Forbrug_vaekst)
 rownames(Forbrug) <- format(Forbrugsdata$Kvartal)
@@ -151,7 +183,12 @@ rownames(Forbrug) <- format(Forbrugsdata$Kvartal)
 faelles <- merge(Forbrug, indikator_liste, by = "row.names")
 colnames(faelles)[1] <- "Kvartal"
 
-# ---- Find den bedste kombination af indikatorer ----
+
+# =====================================================================
+# 6. DEN BEDSTE KOMBINATION AF INDIKATORER
+# =====================================================================
+
+# ---- Korrelation og forklaringsgrad ----
 
 # Beregn korrelationen mellem hver kombination og forbrugsvæksten
 M <- as.matrix(faelles[, -(1:2)])
@@ -162,6 +199,7 @@ forklaringsgrader <- data.frame(
   korrelation = cor(M, y)[, 1],
   R = (cor(M, y)[, 1])^2)
 
+# ---- Top 5 ----
 
 # ---- Gem de 5 indikatorer med højest r værdi ----
 
@@ -170,7 +208,11 @@ top_5_indexer <- order(forklaringsgrader$R, decreasing = TRUE)[1:5]
 top_5 <- forklaringsgrader[top_5_indexer,]
 
 
-# ---- Sammenlign indikatorer ----
+# =====================================================================
+# 7. SAMMENLIGNING AF INDIKATORER
+# =====================================================================
+
+# ---- Saml de kendte indikatorer ----
 
 # Lav et dataframe der indeholder alle de indikatorer vi kender
 alle_indikatorer <- cbind(MCCI_merge$Indikator, 
@@ -182,12 +224,15 @@ alle_indikatorer <- cbind(MCCI_merge$Indikator,
 # Sæt kolonnenavnene til at matche
 colnames(alle_indikatorer) <- c("MCCI", "EU_CCI", "Mikro", "DI", "DST")
 
+# ---- Korrelation og R^2 for de kendte indikatorer ----
+
 # Lav et dataframe der indeholder korrelation og R^2 for alle vores kendte indikatorer
 Kendte_indikatorer <- data.frame(
   korrelation = cor(as.matrix(alle_indikatorer), y),
   R = cor(as.matrix(alle_indikatorer), y)^2
 )
 
+# ---- Endelig sammenligning ----
+
 # Sammensæt
 sammenligning <- rbind(top_5, Kendte_indikatorer)
-
