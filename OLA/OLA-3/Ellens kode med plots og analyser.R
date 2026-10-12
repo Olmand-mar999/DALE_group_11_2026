@@ -253,7 +253,7 @@ alle_indikatorer$realvaekst <- faelles$realvaekst
 
 # Saml modellerne i en liste
 modeller <- list(
-  DI = lm(realvaekst ~ DI, data = alle_indikatorer),
+  model_DI = lm(realvaekst ~ DI, data = alle_indikatorer),
   DST = lm(realvaekst ~ DST, data = alle_indikatorer),
   MCCI = lm(realvaekst ~ MCCI, data = alle_indikatorer),
   EU = lm(realvaekst ~ EU_CCI, data = alle_indikatorer),
@@ -308,60 +308,68 @@ for (navn in names(modeller)) {
 }
 
 
-# ---- Lav plot der kun indeholder DI og de 3 bedste modeller ----
+# ---- Plot DI og de 3 bedste modeller ----
 
-library(tidyr)
+library(ggplot2)
 library(dplyr)
+library(tidyr)
 
-# Vælg modellerne og beregn forudsigelser
+# Hent faktiske realvækstrater og kvartaler
 plot_data <- alle_indikatorer %>%
   mutate(
-    DI = predict(model_DI),
-    Model_1 = predict(model_1),
-    Model_2 = predict(model_2),
-    Model_3 = predict(model_3)
+    DI = predict(modeller[["model_DI"]]),
+    Model_1 = predict(modeller[["Model_1"]]),
+    Model_2 = predict(modeller[["Model_2"]])
   ) %>%
-  select(Kvartal, realvaekst, DI, Model_1, Model_2, Model_3) %>%
+  select(Kvartal, realvaekst, DI, Model_1, Model_2) %>%
   pivot_longer(
-    cols = c(DI, Model_1, Model_2, Model_3),
+    cols = c(DI, Model_1, Model_2),
     names_to = "Model",
     values_to = "Forudsagt"
   )
 
-# Beregn skaleringsfaktor til søjlerne
+# Beregn fælles skaleringsfaktor
 faktor <- max(abs(plot_data$Forudsagt), na.rm = TRUE) /
   max(abs(plot_data$realvaekst), na.rm = TRUE)
 
-# Plot
+# Tegn plottet
 ggplot() +
   geom_col(
-    data = alle_indikatorer,
+    data = distinct(plot_data, Kvartal, realvaekst),
     aes(x = Kvartal, y = realvaekst * faktor),
     fill = "grey75",
     alpha = 0.7
   ) +
   geom_line(
     data = plot_data,
-    aes(x = Kvartal, y = Forudsagt, color = Model, group = Model),
+    aes(
+      x = Kvartal,
+      y = Forudsagt,
+      color = Model,
+      group = Model
+    ),
     linewidth = 1
   ) +
   scale_color_manual(
     values = c(
       "DI" = "blue",
       "Model_1" = "red",
-      "Model_2" = "darkgreen",
-      "Model_3" = "purple"
+      "Model_2" = "darkgreen"
     )
   ) +
   scale_y_continuous(
     name = "Modellernes forudsagte værdier",
     sec.axis = sec_axis(
       ~ . / faktor,
-      name = "Faktisk realvækst"
+      name = "Faktisk realvækst (%)"
     )
   ) +
+  scale_x_date(
+    date_breaks = "2 years",
+    date_labels = "%Y"
+  ) +
   labs(
-    title = "DI, Model 1, Model 2 og Model 3 sammenlignet",
+    title = "DI og de 2 bedste modeller sammenlignet",
     x = "Kvartal",
     color = "Model"
   ) +

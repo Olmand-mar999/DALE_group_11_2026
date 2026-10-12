@@ -137,6 +137,7 @@ DST <- data.frame(Kvartal = KV$Kvartal,
 #bench <- c(EU_CCI = "F3+F5+F8+F12", MCCI = "F2+F3+F9+F10", DI = "F2+F4+F9+F10", DST = "F2+F3+F4+F5+F9")
 
 # ---- Merge med forbrugsdata ----
+
 # Merge alle de forskellige indikatorer med forbrugsdataen
 MCCI_merge <- merge(MCCI, Forbrugsdata, by = "Kvartal")
 EU_CCI_merge <- merge(EU_CCI, Forbrugsdata, by = "Kvartal")
@@ -172,6 +173,16 @@ for (i in 1:length(liste)) {
   colnames(indikator_liste)[i] <- paste(colnames(liste[[i]]), collapse = "+")
   # Indsætter navnene til at være en kombination af alle spørgsmål der indgår i indikatoren
 }
+
+# Dobbeltjek om indikator listen stemmer overens med F_total. Skal give det samme
+indikator_liste$F2[1]
+F_total$F2[1]
+
+# Dobbeltjek om rowmeans regner rigtigt
+indikator_liste$`F4+F10+F12`[1]
+(F_total$F4[1] + F_total$F10[1] + F_total$F12[1]) / 3
+
+
 
 # ---- Klargør forbrugsdata og merge ----
 
@@ -214,25 +225,46 @@ top_5 <- forklaringsgrader[top_5_indexer,]
 
 # ---- Saml de kendte indikatorer ----
 
-# Lav et dataframe der indeholder alle de indikatorer vi kender
-alle_indikatorer <- cbind(MCCI_merge$Indikator, 
+# Lav et dataframe der indeholder alle de indikatorer vi kender samt top_5
+alle_indikatorer <- cbind(MCCI_merge$Kvartal,
+                          MCCI_merge$Indikator, 
                           EU_CCI_merge$Indikator, 
                           Mikro_merge$Indikator, 
                           DI_merge$Indikator, 
-                          DST_merge$Indikator)
+                          DST_merge$Indikator,
+                          indikator_liste[1:(nrow(indikator_liste)-1),top_5_indexer])
 
-# Sæt kolonnenavnene til at matche
-colnames(alle_indikatorer) <- c("MCCI", "EU_CCI", "Mikro", "DI", "DST")
+#Sæt kolonnenavnene til at matche
+colnames(alle_indikatorer)[1] <- "Kvartal"
+colnames(alle_indikatorer) <- gsub("_merge\\$Indikator","",colnames(alle_indikatorer))
 
-# ---- Korrelation og R^2 for de kendte indikatorer ----
-
-# Lav et dataframe der indeholder korrelation og R^2 for alle vores kendte indikatorer
+# Lav et dataframe der indeholder korrelation og R^2 for alle vores indikatorer
 Kendte_indikatorer <- data.frame(
-  korrelation = cor(as.matrix(alle_indikatorer), y),
-  R = cor(as.matrix(alle_indikatorer), y)^2
+  korrelation = cor(as.matrix(alle_indikatorer[,-1]), y),
+  R = cor(as.matrix(alle_indikatorer[,-1]), y)^2
 )
 
-# ---- Endelig sammenligning ----
+# ---- test om vi kan finde DI i vores array af R^2 ----
 
-# Sammensæt
-sammenligning <- rbind(top_5, Kendte_indikatorer)
+which(rownames(forklaringsgrader) == "F2+F4+F9+F10")
+forklaringsgrader[290,]
+
+
+# ---- Undersøg hvilken indikator er bedst over tid ----
+
+# Array til at gemme de indekser der ligger i top-10 over tid
+tabel_liste <- c()
+
+# Loop der beregner R_2 for alle indikatorer og gemmer de bedste
+for (i in 1:20){ # Vi siger 1:20, som er 5 års data. Det vurderes 5 år er nok.
+  
+  data_cut <- nrow(faelles) - i                        # Fjerner et kvartal af gangen
+  indikatorer <- as.matrix(faelles[1:data_cut,-(1)]) # Gem indikatorerne for den nye tidsperiode
+  forbruget <- faelles$realvaekst[1:data_cut]          # Gem realvæksten for den nye tidsperiode
+  R_2 = cor(indikatorer, forbruget)^2                  # Beregn R_2 for alle indikatorerne
+  max <- order(R_2[,1], decreasing = TRUE)[1:10]       # Gemmer hvilke rækker de 10 højeste R_2 ligger på
+  tabel_liste <- c(tabel_liste,(rownames(R_2)[max]))   # Gemmer rownames for de rækkenavne med højest R_2
+  
+}
+
+sort(table(tabel_liste))
