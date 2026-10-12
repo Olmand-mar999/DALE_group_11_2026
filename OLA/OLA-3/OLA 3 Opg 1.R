@@ -326,14 +326,14 @@ for (i in 1:20) {
   
   # Beregn R^2 for alle indikatorer
   korrelation <- cor(indikatorer, forbruget) # Beregn korrelationen
-  R_2 <- as.vector(korrelation)^2 # Beregn R_2
+  R_2 <- (korrelation)^2 # Beregn R_2
   names(R_2) <- colnames(indikatorer) # Sæt navne til at være indikatornavne
   sorteret <- sort(R_2, decreasing = TRUE) # Sortér alle indikatorer fra bedst til dårligst
   
   
   # Gem rang, indikator, R^2 og periode for alle indikatorer
   samlet <- data.frame(
-    Rang = seq_along(sorteret),
+    Rang = 1:length(sorteret),
     Indikator = names(sorteret),
     R_vaerdi = sorteret,
     Fjernede_kvartaler = i
@@ -380,3 +380,4 @@ colnames(gennemsnitlig_rangering) <- c(
   "Gennemsnitlig_R2",
   "Antal gange i top-10"
 )
+
