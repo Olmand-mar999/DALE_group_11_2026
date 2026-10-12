@@ -249,111 +249,134 @@ Kendte_indikatorer <- data.frame(
 which(rownames(forklaringsgrader) == "F2+F4+F9+F10")
 forklaringsgrader[290,]
 
+# =====================================================================
+# 8. Forudsigelser af de bedste modeller
+# =====================================================================
 
-# ---- Undersøg hvilken indikator er bedst over tid ----
+# ---- saml alle de indikatorer vi vil lave forudsigelser på ----
 
-# Array til at gemme de indekser der ligger i top-10 over tid
-tabel_liste <- c()
+# Gem de bedste 2 modeller og DI
+top_2_indexer <- order(forklaringsgrader$R, decreasing = TRUE)[1:2]
+top_2 <- indikator_liste[1:(nrow(indikator_liste)-1),top_2_indexer]
+
+# Gem dem i fælles dataframe
+Forudsigelsesdata <- cbind(faelles[,1:2], top_2, DI_merge$Indikator)
+
+# Ret navnet på DI
+colnames(Forudsigelsesdata)[5] <- "DI"
+
+# Simpel lineær regression af forbrugsvæksten på hver indikator
+model_1  <- lm(realvaekst ~ F10,  data = Forudsigelsesdata)
+model_2 <- lm(realvaekst ~ `F4+F9+F10+F12+F13`, data = Forudsigelsesdata)
+model_DI  <- lm(realvaekst ~ DI,  data = Forudsigelsesdata)
+
+# ---- Forudsig 3. kvartal ----
+
+# Indikatorernes værdier for det kvartal, som skal forudsiges
+ny <- F_total[rownames(F_total) == as.Date("2026-07-01"), ]
+ny$DI <- (ny$F2 + ny$F4 + ny$F9 + ny$F10) / 4
+ny$F10 <- ny$F10
+ny$`F4+F9+F10+F12+F13` <- (ny$F4 + ny$F9 + ny$F10+ ny$F12 +ny$F13) / 5
+
+# Forudsigelse af den årlige realvækst i kvartalet med hver model
+predict(model_DI,  newdata = ny)
+predict(model_1, newdata = ny)
+predict(model_2, newdata = ny)
+
+
+# ---- Forudsig 4. kvartal ----
+
+# Gennemsnitlig realvækst for fjerde kvartal
+KV_4 <- seq(4,nrow(Forudsigelsesdata),4)
+mean_4 <- mean(Forudsigelsesdata$realvaekst[KV_4])
+
+# Gennemsnitlig realvækst for tredje kvartal
+KV_3 <- seq(4,nrow(Forudsigelsesdata),4) - 1
+mean_3 <- mean(Forudsigelsesdata$realvaekst[KV_3])
+
+# Hvor meget højere er realvæksten i 4. kvartal end 3.kvartal
+procent_stoerre <- (mean_4 - mean_3) / mean_3
+procent_stoerre
+
+# Bestem hvad værdierne for 4. kvartal bliver
+predict(model_DI,  newdata = ny) * (1 - procent_stoerre)
+predict(model_1, newdata = ny) * (1 + procent_stoerre)
+predict(model_2, newdata = ny) * (1 + procent_stoerre)
+
+# Er lidt i tvivl om fremgangsmåden er rigtig for DI?
+# Siden DI forudsigelsen er negativ, men vi vil forvente den stiger for 4. kv.
+
+
+# =====================================================================
+# 9. STABILITET AF RANGERING OVER TID
+# =====================================================================
+
+
+# ---- Lav loop der beregner rangering og R^2 over de seneste 20 kvartaler ----
 
 # Loop der beregner R_2 for alle indikatorer og gemmer de bedste
-for (i in 1:20){ # Vi siger 1:20, som er 5 års data. Det vurderes 5 år er nok.
+alle_kvartaler <- data.frame()
+
+for (i in 1:20) {
+
+  data_cut <- nrow(faelles) - i # Fjern ét kvartal mere for hver iteration
+  indikatorer <- as.matrix(faelles[1:data_cut, -(1:2)]) # Kvartal fjernes fra indikatorerne
+  forbruget <- faelles$realvaekst[1:data_cut] # Kvartal fjernes fra realvæksten
   
-  data_cut <- nrow(faelles) - i                        # Fjerner et kvartal af gangen
-  indikatorer <- as.matrix(faelles[1:data_cut,-(1)]) # Gem indikatorerne for den nye tidsperiode
-  forbruget <- faelles$realvaekst[1:data_cut]          # Gem realvæksten for den nye tidsperiode
-  R_2 = cor(indikatorer, forbruget)^2                  # Beregn R_2 for alle indikatorerne
-  max <- order(R_2[,1], decreasing = TRUE)[1:10]       # Gemmer hvilke rækker de 10 højeste R_2 ligger på
-  tabel_liste <- c(tabel_liste,(rownames(R_2)[max]))   # Gemmer rownames for de rækkenavne med højest R_2
   
+  # Beregn R^2 for alle indikatorer
+  korrelation <- cor(indikatorer, forbruget) # Beregn korrelationen
+  R_2 <- as.vector(korrelation)^2 # Beregn R_2
+  names(R_2) <- colnames(indikatorer) # Sæt navne til at være indikatornavne
+  sorteret <- sort(R_2, decreasing = TRUE) # Sortér alle indikatorer fra bedst til dårligst
+  
+  
+  # Gem rang, indikator, R^2 og periode for alle indikatorer
+  samlet <- data.frame(
+    Rang = seq_along(sorteret),
+    Indikator = names(sorteret),
+    R_vaerdi = sorteret,
+    Fjernede_kvartaler = i
+  )
+  alle_kvartaler <- rbind(alle_kvartaler, samlet)
 }
 
-sort(table(tabel_liste))
+
+# ---- Lav data.frame der indeholder gns rangering, R_2 og antal gange i top 10 ----
+
+# Beregn gennemsnitlig rangering og gennemsnitlig R^2
+gennemsnitlig_rangering <- aggregate(
+  cbind(Rang, R_vaerdi) ~ Indikator,
+  data = alle_kvartaler,
+  FUN = mean
+)
 
 
-# =====================================================================
-# 8. STABILITET AF RANGERING OVER TID
-# =====================================================================
+# Beregn hvor mange perioder hver indikator indgår i
+antal <- table(alle_kvartaler$Indikator)
 
-# ---- Indstillinger (ret kun her) ----
 
-vindue          <- 40   # Længden af hvert enkelt vindue i kvartaler (40 = 10 år)
-periode_tilbage <- 60   # Hvor mange kvartaler vi samlet kigger tilbage fra seneste kvartal (60 = 15 år)
-skridt          <- 1    # Hvor mange kvartaler hvert vindue rykkes frem. 1 = kraftigt overlap, 'vindue' = ingen overlap
+# Tæl hvor mange gange hver indikator var i top 10
+top10 <- table(
+  alle_kvartaler$Indikator[alle_kvartaler$Rang <= 10]
+)
 
-# ---- Trin 1: Forbered data ----
 
-M <- as.matrix(faelles[, -(1:2)])   # Alle kolonner i 'faelles' undtagen Kvartal og realvaekst, som matrix. Hver kolonne er én indikator-kombination
-y <- faelles$realvaekst             # Forbrugsvæksten som vektor
-n <- nrow(M)                        # Antal kvartaler i data
+# Indsæt antallet af gange alle indikatorerne var i top 10
+# Hvis indikatoren aldrig har været i top-10 bliver den sat til NA
+gennemsnitlig_rangering$Antal_gange_i_top10 <-
+  as.integer(top10[gennemsnitlig_rangering$Indikator])
 
-# ---- Trin 2: Beregn antal vinduer og startpunkt ----
 
-antal_vinduer <- floor((periode_tilbage - vindue) / skridt) + 1  # Hvor mange vinduer der kan være i perioden, når de rykkes 'skridt' kvartaler ad gangen
-foerste_start <- n - vindue + 1 - (antal_vinduer - 1) * skridt   # Rækken hvor første vindue starter. Regnet baglæns så sidste vindue slutter i række n (seneste kvartal)
+# Indikatorer, der aldrig var i top 10, får værdien 0
+gennemsnitlig_rangering$Antal_gange_i_top10[
+  is.na(gennemsnitlig_rangering$Antal_gange_i_top10)] <- 0
 
-if (vindue > periode_tilbage) stop("vindue må ikke være større end periode_tilbage")     # Stopper hvis vinduet er længere end hele perioden
-if (antal_vinduer < 2) stop("Der skal være mindst 2 vinduer for at måle stabilitet")      # Stopper hvis der kun er ét vindue, da spredning ikke kan beregnes
-if (foerste_start < 1) stop("periode_tilbage er længere end data. Max er ", n)           # Stopper hvis vi beder om mere data end der findes
 
-cat("Antal vinduer:", antal_vinduer, "\n")                                                                # Skriver antal vinduer i konsollen
-cat("Analyserer fra", format(faelles$Kvartal[foerste_start]), "til", format(faelles$Kvartal[n]), "\n")      # Skriver hvilken periode der samlet analyseres, så du kan kontrollere den
-
-# ---- Trin 3: Forbered tom matrix ----
-
-rang_matrix <- matrix(NA, nrow = ncol(M), ncol = antal_vinduer)  # Tom matrix: én række pr. kombination, én kolonne pr. vindue
-rownames(rang_matrix) <- colnames(M)                              # Rækkenavne = kombinationernes navne (fx "F2+F4+F9+F10")
-vindue_navne <- rep(NA, antal_vinduer)                            # Tom vektor til vinduernes slutkvartal
-
-# ---- Trin 4: Loop over vinduerne ----
-
-for (v in 1:antal_vinduer) {          # Loop hvor v er nummeret på det aktuelle vindue
-  
-  start <- foerste_start + (v - 1) * skridt   # Vinduets første række. Vindue 1 starter i foerste_start, vindue 2 'skridt' rækker senere osv.
-  slut  <- start + vindue - 1                 # Vinduets sidste række
-  idx   <- start:slut                         # Rækkenumrene i vinduet
-  
-  korr <- cor(M[idx, ], y[idx])[, 1]  # Korrelation mellem hver kombination og forbrugsvæksten, kun for kvartalerne i vinduet. [, 1] gør resultatet til en almindelig vektor
-  
-  r2 <- korr^2                        # Kvadrerer korrelationen for at få R^2
-  r2[korr < 0] <- 0                   # Sætter R^2 til 0 hvor korrelationen er negativ, da en negativ sammenhæng ikke er en brugbar indikator
-  
-  rang <- rank(-r2, ties.method = "min")  # Rangerer kombinationerne. Minus vender rækkefølgen, så højeste R^2 får rang 1. Ved lighed får alle den laveste fælles rang
-  
-  rang_matrix[, v] <- rang            # Gemmer rangeringerne i kolonne v
-  
-  vindue_navne[v] <- format(faelles$Kvartal[slut])  # Gemmer vinduets slutkvartal som tekst
-}
-
-colnames(rang_matrix) <- vindue_navne # Sætter kolonnenavnene til vinduernes slutkvartaler
-
-dim(rang_matrix)                      # Skal give (antal kombinationer, antal_vinduer)
-rang_matrix[1:5, 1:min(5, antal_vinduer)]  # Viser de første 5 kombinationer i de første op til 5 vinduer til kontrol
-
-# ---- Trin 5: Opsummér hver kombinations rangeringer ----
-
-rang_oversigt <- data.frame(row.names = rownames(rang_matrix))  # Tom dataframe med kombinationernes navne som rækker
-
-rang_oversigt$gns_rang     <- rowMeans(rang_matrix)                       # Gennemsnit af rangeringer pr. kombination. Lavere er bedre
-rang_oversigt$bedste_rang  <- do.call(pmin, as.data.frame(rang_matrix))   # Laveste (bedste) rang pr. kombination på tværs af vinduer
-rang_oversigt$vaerste_rang <- do.call(pmax, as.data.frame(rang_matrix))   # Højeste (værste) rang pr. kombination på tværs af vinduer
-rang_oversigt$andel_top10  <- rowMeans(rang_matrix <= 10)                 # Andel af vinduer hvor kombinationen er i top 10 (TRUE tæller som 1, FALSE som 0)
-
-afvigelser <- rang_matrix - rang_oversigt$gns_rang                        # Trækker hver rækkes gennemsnitsrang fra dens rangeringer
-rang_oversigt$sd_rang <- sqrt(rowSums(afvigelser^2) / (antal_vinduer - 1))  # Standardafvigelse af rangeringerne. Lav sd = stabil rangering
-
-# ---- Trin 6: Sortér efter gennemsnitsrang ----
-
-raekkefoelge  <- order(rang_oversigt$gns_rang)   # Rækkefølgen der sorterer gns_rang fra lavest til højest
-rang_oversigt <- rang_oversigt[raekkefoelge, ]   # Sorterer oversigten
-
-head(rang_oversigt, 10)                          # De 10 kombinationer med lavest gennemsnitsrang
-
-# ---- Trin 7: Hvor ligger de kendte indikatorer? ----
-
-kendte <- c(MCCI       = "F2+F3+F9+F10",         # Navngiven vektor: indikatorens betegnelse og dens kombinationsnavn. MCCI
-            EU_CCI     = "F3+F5+F8+F12",         # EU's indikator
-            Alle_mikro = "F2+F3+F9+F10+F12+F13", # Alle mikrospørgsmål
-            DI         = "F2+F4+F9+F10",         # DI's indikator
-            DST        = "F2+F3+F4+F5+F9")       # DST's indikator
-
-rang_oversigt[kendte, ]                          # Slår de fem op i oversigten og viser deres statistik
+# Omdøb kolonner
+colnames(gennemsnitlig_rangering) <- c(
+  "Indikator",
+  "Gennemsnitlig_rang",
+  "Gennemsnitlig_R2",
+  "Antal gange i top-10"
+)
