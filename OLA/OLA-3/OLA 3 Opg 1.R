@@ -255,33 +255,100 @@ forklaringsgrader[290,]
 
 # ---- saml alle de indikatorer vi vil lave forudsigelser på ----
 
-# Gem de bedste 2 modeller og DI
-top_2_indexer <- order(forklaringsgrader$R, decreasing = TRUE)[1:2]
-top_2 <- indikator_liste[1:(nrow(indikator_liste)-1),top_2_indexer]
+# Gem de bedste 20 modeller
+top_20_indexer <- order(forklaringsgrader$R, decreasing = TRUE)[1:20]
+top_20 <- indikator_liste[1:(nrow(indikator_liste)-1),top_20_indexer]
 
 # Gem dem i fælles dataframe
-Forudsigelsesdata <- cbind(faelles[,1:2], top_2, DI_merge$Indikator)
+Forudsigelsesdata <- cbind(faelles[,1:2], top_20)
 
-# Ret navnet på DI
-colnames(Forudsigelsesdata)[5] <- "DI"
+# ---- Find det kvartal vi laver forudsigelser på ----
+
+# Indikatorernes værdier for det kvartal, som skal forudsiges
+ny <- F_total[rownames(F_total) == as.Date("2026-07-01"), ]
+
+# Gem alle navnene på 
+indikatornavne <- colnames(Forudsigelsesdata)
+
+# ---- Beregn værdien for alle indikatorer i det nye kvartal ----
+
+# Gem data for det nye kvartal og find hvad den fremtidige værdi er for de individuelle indikatorer
+for (navn in indikatornavne) {
+  if (grepl("^F[0-9]+\\+F[0-9]+", navn)) {
+    dele <- strsplit(navn, "\\+")[[1]] # Deler indikatornavnet ud i de enkelte spørgsmål
+    #ny[[navn]] sætter navnet på en række til indikator navnet, og derefter indsætter gennemsnittet af indikatorspørgsmålene som værdier
+    ny[, navn] <- rowMeans(ny[, dele, drop = FALSE]) # drop = false betyder den returnere en dataframe og ikke en vektor
+  }
+}
+
+# ---- Loop der beregner alle forudsigelserne for det nyeste kvartal ----
+
+# Liste til at gemme forudsigelser
+forudsagte_værdier <- data.frame(
+  Indikator = character(),
+  Forudsagt_Q3 = numeric())
+
+# Lav loop der regner forudsagte værdier for 4. kvartal for de valgte indikatorer
+for (i in 3:ncol(Forudsigelsesdata)){
+  # Laver et nyt dataframe, så jeg selv kan styre hvilket navn predict leder efter
+  data <- data.frame(
+    realvaekst = Forudsigelsesdata$realvaekst, # Gemmer realvæksten
+    indikator = Forudsigelsesdata[,i] # Gemmer indikator i
+  )
+  # Gemmer navnet på indikatoren der bruges og så beregner modellen
+  name <- colnames(Forudsigelsesdata)[i]
+  model <- lm(realvaekst ~ indikator,  data = data)
+  
+  # Hent indikatorens værdi for det nye kvartal i et nyt dataframe, så jeg selv kan styre navnet
+  ny_data <- data.frame(
+    indikator = ny[, name])
+  
+  # Beregn den predictede værdi for det nyeste kvartal  
+  predicted <- predict(model,  newdata = ny_data)
+  
+  # Gem den forudsagte værdi samt indikatornavnet i et nyt dataframe
+  data_frame <- data.frame(
+    Indikator = name,
+    Forudsagt_Q3 = predicted
+  )
+  
+  # Tilføj det nye dataframe til den samlede dataframe
+  forudsagte_værdier <- rbind(
+    forudsagte_værdier,
+    data_frame)
+}
+
+# ---- Tilføj DI forudsigelse ----
+
+# DI tilføjes til min liste af forudsagte værdier, da det er den der sammenlignes med
+ny <- F_total[rownames(F_total) == as.Date("2026-07-01"), ]
+Forudsigelsesdata$DI <- DI_merge$Indikator
+model_DI  <- lm(realvaekst ~ DI,  data = Forudsigelsesdata)
+ny$DI <- (ny$F2 + ny$F4 + ny$F9 + ny$F10) / 4
+predict_DI <- predict(model_DI,  newdata = ny)
+DI_data <- data.frame(Indikator = "DI", Forudsagt_Q3 = predict_DI)
+forudsagte_værdier <- rbind(forudsagte_værdier, DI_data)
+
+
+###### Alt under her skal slettes, hvis loopet er ok.
 
 # Simpel lineær regression af forbrugsvæksten på hver indikator
-model_1  <- lm(realvaekst ~ F10,  data = Forudsigelsesdata)
-model_2 <- lm(realvaekst ~ `F4+F9+F10+F12+F13`, data = Forudsigelsesdata)
-model_DI  <- lm(realvaekst ~ DI,  data = Forudsigelsesdata)
+#model_1  <- lm(realvaekst ~ F10,  data = Forudsigelsesdata)
+#model_2 <- lm(realvaekst ~ `F4+F9+F10+F12+F13`, data = Forudsigelsesdata)
+#model_DI  <- lm(realvaekst ~ DI,  data = Forudsigelsesdata)
 
 # ---- Forudsig 3. kvartal ----
 
 # Indikatorernes værdier for det kvartal, som skal forudsiges
-ny <- F_total[rownames(F_total) == as.Date("2026-07-01"), ]
-ny$DI <- (ny$F2 + ny$F4 + ny$F9 + ny$F10) / 4
-ny$F10 <- ny$F10
-ny$`F4+F9+F10+F12+F13` <- (ny$F4 + ny$F9 + ny$F10+ ny$F12 +ny$F13) / 5
+#ny <- F_total[rownames(F_total) == as.Date("2026-07-01"), ]
+#ny$DI <- (ny$F2 + ny$F4 + ny$F9 + ny$F10) / 4
+#ny$F10 <- ny$F10
+#ny$`F4+F9+F10+F12+F13` <- (ny$F4 + ny$F9 + ny$F10+ ny$F12 +ny$F13) / 5
 
 # Forudsigelse af den årlige realvækst i kvartalet med hver model
-predict(model_DI,  newdata = ny)
-predict(model_1, newdata = ny)
-predict(model_2, newdata = ny)
+#predict(model_DI,  newdata = ny)
+#predict(model_1, newdata = ny)
+#predict(model_2, newdata = ny)
 
 
 # ---- Forudsig 4. kvartal ----
@@ -299,12 +366,12 @@ procent_stoerre <- (mean_4 - mean_3) / mean_3
 procent_stoerre
 
 # Bestem hvad værdierne for 4. kvartal bliver
-predict(model_DI,  newdata = ny) * (1 - procent_stoerre)
-predict(model_1, newdata = ny) * (1 + procent_stoerre)
-predict(model_2, newdata = ny) * (1 + procent_stoerre)
+forudsagte_værdier$Forudsagt_Q4 <- forudsagte_værdier$Forudsagt_Q3 * (1 + procent_stoerre)
 
-# Er lidt i tvivl om fremgangsmåden er rigtig for DI?
+# Er lidt i tvivl om fremgangsmåden er rigtig for negative værdier?
 # Siden DI forudsigelsen er negativ, men vi vil forvente den stiger for 4. kv.
+# Ellers så skal der måske være en if.else om hvordan den skal regne positive og negative?
+# Er hele princippet for at regne 4. kvartal korrekt?
 
 
 # =====================================================================
@@ -314,10 +381,17 @@ predict(model_2, newdata = ny) * (1 + procent_stoerre)
 
 # ---- Lav loop der beregner rangering og R^2 over de seneste 20 kvartaler ----
 
+# Find hvilken række i datasæt hvor corona startede
+Corona_start <- which(faelles$Kvartal == "2020-01-01")
+
+# Find hvor mange kvartaler der har været siden da
+antal_KV <- nrow(faelles) - Corona_start
+antal_KV
+
 # Loop der beregner R_2 for alle indikatorer og gemmer de bedste
 alle_kvartaler <- data.frame()
 
-for (i in 1:20) {
+for (i in 1:antal_KV) {
 
   data_cut <- nrow(faelles) - i # Fjern ét kvartal mere for hver iteration
   indikatorer <- as.matrix(faelles[1:data_cut, -(1:2)]) # Kvartal fjernes fra indikatorerne
@@ -381,3 +455,18 @@ colnames(gennemsnitlig_rangering) <- c(
   "Antal gange i top-10"
 )
 
+
+# Baums opgave
+#DST = "F2+F3+F4+F5+F9"
+# Vi kan ikke bruge multipel lineær regression fordi den ikke tager hensyn til
+# multikollinearitet mellem de 11 spørgsmål der er i forbrugertillidsundersøgelsen
+# Eller de 5 spørgsmål der er i DST's.
+
+cor_1 <- cor(faelles$realvaekst, faelles$F2)
+cor_2 <- cor(faelles$realvaekst, faelles$F3)
+cor_3 <- cor(faelles$realvaekst, faelles$F4)
+cor_4 <- cor(faelles$realvaekst, faelles$F5)
+cor_5 <- cor(faelles$realvaekst, faelles$F9)
+
+baum_test <- lm(realvaekst ~ F2 + F3 + F4 + F5 + F9, data = faelles)
+baum_test
