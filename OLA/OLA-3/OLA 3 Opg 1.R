@@ -455,18 +455,3 @@ colnames(gennemsnitlig_rangering) <- c(
   "Antal gange i top-10"
 )
 
-
-# Baums opgave
-#DST = "F2+F3+F4+F5+F9"
-# Vi kan ikke bruge multipel lineær regression fordi den ikke tager hensyn til
-# multikollinearitet mellem de 11 spørgsmål der er i forbrugertillidsundersøgelsen
-# Eller de 5 spørgsmål der er i DST's.
-
-cor_1 <- cor(faelles$realvaekst, faelles$F2)
-cor_2 <- cor(faelles$realvaekst, faelles$F3)
-cor_3 <- cor(faelles$realvaekst, faelles$F4)
-cor_4 <- cor(faelles$realvaekst, faelles$F5)
-cor_5 <- cor(faelles$realvaekst, faelles$F9)
-
-baum_test <- lm(realvaekst ~ F2 + F3 + F4 + F5 + F9, data = faelles)
-baum_test
