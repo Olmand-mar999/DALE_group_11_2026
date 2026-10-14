@@ -295,6 +295,7 @@ for (i in 3:ncol(Forudsigelsesdata)){
     realvaekst = Forudsigelsesdata$realvaekst, # Gemmer realvæksten
     indikator = Forudsigelsesdata[,i] # Gemmer indikator i
   )
+  
   # Gemmer navnet på indikatoren der bruges og så beregner modellen
   name <- colnames(Forudsigelsesdata)[i]
   model <- lm(realvaekst ~ indikator,  data = data)
