@@ -200,6 +200,7 @@ top_5 <- forklaringsgrader[top_5_indexer,]
 # ---- Sammenlign indikatorer ----
 
 # Lav et dataframe der indeholder alle de indikatorer vi kender samt top_5
+# Laves igen så alle indikatorerne har samme antal rækker som realvæksten
 alle_indikatorer <- cbind(MCCI_merge$Kvartal,
                           MCCI_merge$Indikator, 
                           EU_CCI_merge$Indikator, 

@@ -202,7 +202,10 @@ colnames(faelles)[1] <- "Kvartal"
 # ---- Korrelation og forklaringsgrad ----
 
 # Beregn korrelationen mellem hver kombination og forbrugsvæksten
-M <- as.matrix(faelles[, -(1:2)])
+# Fjern Kvartal og realvækst som er de kolonner vi ikke vil lave korrelation på
+# setdiff gør at den gemmer alle kolonner der ikke hedder Kvartal eller realvaekst
+indikator_kolonner <- setdiff(colnames(faelles), c("Kvartal", "realvaekst"))
+M <- as.matrix(faelles[, indikator_kolonner])
 y <- faelles$realvaekst
 
 # Beregn korrelation og R^2 for alle indikatorer og gem dem i et dataframe
@@ -226,6 +229,7 @@ top_5 <- forklaringsgrader[top_5_indexer,]
 # ---- Saml de kendte indikatorer ----
 
 # Lav et dataframe der indeholder alle de indikatorer vi kender samt top_5
+# Laves igen så alle indikatorerne har samme antal rækker som realvæksten
 alle_indikatorer <- cbind(MCCI_merge$Kvartal,
                           MCCI_merge$Indikator, 
                           EU_CCI_merge$Indikator, 
@@ -265,21 +269,14 @@ Forudsigelsesdata <- cbind(faelles[,1:2], top_20)
 # ---- Find det kvartal vi laver forudsigelser på ----
 
 # Indikatorernes værdier for det kvartal, som skal forudsiges
-ny <- F_total[rownames(F_total) == as.Date("2026-07-01"), ]
+#ny_rows <- nrow(F_total) - nrow(Forbrug) - 1
+#ny <- F_total[(nrow(F_total)-ny_rows):nrow(F_total),]
+#ny <- F_total[rownames(F_total) == as.Date("2026-07-01"), ]
+nye_KV <- setdiff(rownames(F_total), rownames(Forbrug))
+ny <- indikator_liste[nye_KV,]
 
-# Gem alle navnene på 
-indikatornavne <- colnames(Forudsigelsesdata)
 
-# ---- Beregn værdien for alle indikatorer i det nye kvartal ----
 
-# Gem data for det nye kvartal og find hvad den fremtidige værdi er for de individuelle indikatorer
-for (navn in indikatornavne) {
-  if (grepl("^F[0-9]+\\+F[0-9]+", navn)) {
-    dele <- strsplit(navn, "\\+")[[1]] # Deler indikatornavnet ud i de enkelte spørgsmål
-    #ny[[navn]] sætter navnet på en række til indikator navnet, og derefter indsætter gennemsnittet af indikatorspørgsmålene som værdier
-    ny[, navn] <- rowMeans(ny[, dele, drop = FALSE]) # drop = false betyder den returnere en dataframe og ikke en vektor
-  }
-}
 
 # ---- Loop der beregner alle forudsigelserne for det nyeste kvartal ----
 
