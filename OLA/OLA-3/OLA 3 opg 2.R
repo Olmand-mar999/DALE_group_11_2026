@@ -192,3 +192,5 @@ loadings.pcr.fit
 w.indicators.1 <- loadings.pcr.fit[1:5]^2
 w.indicators.1
 sum(w.indicators.1)
+
+
