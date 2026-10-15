@@ -46,7 +46,7 @@ Forventninger <- dst_get_data("FORV1", query = list(INDIKATOR = "*", Tid = "*"))
 # Tidskolonne sættes til datoformat
 Forventninger$TID <- as.Date(Forventninger$TID, tz = "Europe/Copenhagen")
 
-# Behold kun rækker fra og med 1. januar 1998
+# Behold kun rækker fra og med 1. januar 2000
 Forventninger <- Forventninger[Forventninger$TID >= as.Date("2000-01-01"), ]
 
 # ---- Aggregering til kvartaler ----
@@ -283,7 +283,8 @@ ny <- indikator_liste[nye_KV,]
 # Liste til at gemme forudsigelser
 forudsagte_værdier <- data.frame(
   Indikator = character(),
-  Forudsagt_Q3 = numeric())
+  Forudsagt_Q3 = numeric()
+  )
 
 # Lav loop der regner forudsagte værdier for 4. kvartal for de valgte indikatorer
 for (i in 3:ncol(Forudsigelsesdata)){
@@ -299,7 +300,8 @@ for (i in 3:ncol(Forudsigelsesdata)){
   
   # Hent indikatorens værdi for det nye kvartal i et nyt dataframe, så jeg selv kan styre navnet
   ny_data <- data.frame(
-    indikator = ny[, name])
+    indikator = ny[, name]
+    )
   
   # Beregn den predictede værdi for det nyeste kvartal  
   predicted <- predict(model,  newdata = ny_data)
