@@ -193,4 +193,4 @@ w.indicators.1 <- loadings.pcr.fit[1:5]^2
 w.indicators.1
 sum(w.indicators.1)
 
-
+-cor(Forbrug$realvaekst, F2[1:nrow(Forbrug)])

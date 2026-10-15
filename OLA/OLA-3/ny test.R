@@ -106,7 +106,7 @@ F13 <- KV[[grep("^F13 ",  colnames(KV))]]  # Familiens økonomiske situation lig
 # ---- Vend fortegn ----
 # Spørgsmål hvor "stigning" er dårligt, og som derfor vendes (priser og arbejdsløshed)
 F6 <- F6 * (-1)
-F7 <- F7 * (-1)
+F7 <- F7 * (-1) # Skal fjernes?
 F8 <- F8 * (-1)
 
 # ---- Saml spørgsmålene ----
