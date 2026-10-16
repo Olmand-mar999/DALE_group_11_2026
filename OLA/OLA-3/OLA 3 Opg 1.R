@@ -84,10 +84,12 @@ F11 <- KV[[grep("^F11 ",  colnames(KV))]]  # Anser det som fornuftigt at spare o
 F12 <- KV[[grep("^F12 ",  colnames(KV))]]  # Regner med at kunne spare op i de kommende 12 måneder
 F13 <- KV[[grep("^F13 ",  colnames(KV))]]  # Familiens økonomiske situation lige nu: kan spare/penge slår til/ bruger mere end man tjener
 
+cor(Forbrugsdata$Forbrug_vaekst, (F13[1:nrow(Forbrugsdata)]))
+
 # ---- Vend fortegn ----
 # Spørgsmål hvor "stigning" er dårligt, og som derfor vendes (priser og arbejdsløshed)
 F6 <- F6 * (-1)
-F7 <- F7 * (-1)
+#F7 <- F7 * (-1)
 F8 <- F8 * (-1)
 
 # ---- Saml spørgsmålene ----
@@ -454,4 +456,5 @@ colnames(gennemsnitlig_rangering) <- c(
   "Gennemsnitlig_R2",
   "Antal gange i top-10"
 )
+
 
