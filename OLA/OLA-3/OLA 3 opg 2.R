@@ -138,9 +138,100 @@ rownames(F_total) <- format(KV$Kvartal)
 
 
 # =====================================================================
-# 3. DST indikator
+# 4. DATA TIL REGRESSION
 # =====================================================================
 
-# DST's fem spørgsmål hentes fra 'kendte'
-dst_sp <- strsplit(kendte[["DST"]], "+", fixed = TRUE)[[1]]
+Forbrug <- data.frame(realvaekst = Forbrugsdata$Forbrug_vaekst,
+                      row.names = format(Forbrugsdata$Kvartal))
 
+# Gemmer rownames for alle kvartaler der er i både spørgsmålene og forbruget
+faelles_kv <- intersect(rownames(F_total), rownames(Forbrug))
+
+# Gemmer rownames for alle kvartaler der skal forudsiges
+nye_kv     <- setdiff(rownames(F_total), faelles_kv)
+
+# Dataframe der samler realvæksten og spørgsmålene
+faelles <- data.frame(Kvartal = as.Date(faelles_kv),
+                      realvaekst = Forbrug[faelles_kv, "realvaekst"],
+                      F_total[faelles_kv, ],
+                      row.names = NULL)
+
+# =====================================================================
+# 5. LINEÆRE OG MULTIPLE REGRESSIONER FOR ALLE SPØRGSMÅL
+# =====================================================================
+
+# ---- Multipel lineær regression ----
+multi <- lm(realvaekst ~ ., data = faelles[, -1])
+summary(multi)
+
+# ---- Fjern insignifikante spørgsmål ét ad gangen (højeste p-værdi først) ----
+alle_sp <- setdiff(names(faelles), c("Kvartal", "realvaekst"))
+beholdte <- alle_sp
+
+# Signifikans niveau
+signifikans <- 0.05
+
+# Bliver ved med at fjerne insignifikante spørgsmål indtil alle tilbageværende er signifikante
+repeat {
+  # multipel regression laves med de spørgsmål der beholdes
+  multi_ren <- lm(
+    realvaekst ~ .,
+    data = faelles[, c("realvaekst", beholdte)]
+  )
+  # gemmer alle p-værdierne
+  p_vaerdier <- summary(multi_ren)$coefficients[-1, "Pr(>|t|)"]
+  
+  # Stop, hvis alle tilbageværende spørgsmål er signifikante
+  if (all(p_vaerdier < signifikans)) break
+  
+  beholdte <- setdiff(beholdte, names(which.max(p_vaerdier)))
+}
+
+beholdte            # Spørgsmål, der er tilbage
+summary(multi_ren)  # Resultat af den endelige regression
+
+# ---- Lineær regression for hvert enkelt spørgsmål ----
+enkelt <- data.frame()
+for (sp in alle_sp) {
+  s <- summary(lm(reformulate(sp, response = "realvaekst"), data = faelles))
+  enkelt <- rbind(enkelt, data.frame(
+    Spoergsmaal = sp,
+    Koefficient = s$coefficients[2, "Estimate"],
+    p_vaerdi    = s$coefficients[2, "Pr(>|t|)"],
+    R2          = s$r.squared
+  ))
+}
+enkelt
+
+# =====================================================================
+# 6. PCA REGRESSION
+# =====================================================================
+
+# Lav PCA fit [, -1] fjerner Kvartal
+# Scale skal være TRUE for at den ikke prøver at lave samme skala for realvæksten og spørgsmålene
+# . betyder alle andre variable end realvækst i faelles[, -1]
+pcr.fit <- pcr(realvaekst ~ ., data = faelles[, -1], scale = TRUE)
+summary(pcr.fit)
+
+# =====================================================================
+# 7. VÆGTE
+# =====================================================================
+
+vaegte <- loadings(pcr.fit)[, 1]^2          # kvadrerede loadings på 1. hovedkomponent
+sort(vaegte, decreasing = TRUE)             # alle vægte, højest først
+sort(vaegte, decreasing = TRUE)[1:3]        # de tre højeste
+
+# =====================================================================
+# 8. FORUDSIGELSE
+# =====================================================================
+
+# Vægtet indikator = sum af (vægt x svar), og forbrugsvæksten regresseres på den
+# %*% laver matrix multiplikation og tager summen af alle rækker efter multiplikationen
+faelles_ind <- data.frame(realvaekst = faelles$realvaekst,
+                          indikator  = as.numeric(as.matrix(faelles[, names(vaegte)]) %*% vaegte))
+model <- lm(realvaekst ~ indikator, data = faelles_ind)
+
+ny <- data.frame(indikator = as.numeric(as.matrix(F_total[nye_kv, names(vaegte)]) %*% vaegte))
+
+forudsagt <- data.frame(Kvartal = nye_kv, Forudsagt = predict(model, newdata = ny))
+forudsagt
