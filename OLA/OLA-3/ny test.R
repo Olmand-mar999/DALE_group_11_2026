@@ -9,6 +9,7 @@ tidszone         <- "Europe/Copenhagen"
 startdato        <- as.Date("2000-01-01")   # første kvartal der bruges (forbrug og forventninger)
 Q_pr_aar <- 4                       # bruges til årlig vækst
 antal_top <- 5 # hvor mange af de bedste indikatorer vi gemmer
+antal_modeller <- 20    # antal bedste indikatorer der får en forudsigelse i sektion 7
 
 # Spørgsmål der indgår i alle kombinationer
 # F2  Familiens økonomi i dag vs. for et år siden
@@ -24,6 +25,13 @@ antal_top <- 5 # hvor mange af de bedste indikatorer vi gemmer
 # F12 Regner med at kunne spare op i de kommende 12 måneder
 # F13 Familiens økonomiske situation lige nu: kan spare / penge slår til / bruger mere end man tjener
 
+
+# Kendte indikatorer
+kendte <- c(MCCI       = "F2+F3+F9+F10",           # Artiklens mikrospørgsmål
+            EU_CCI     = "F3+F5+F8+F12",           # Europas indikator
+            Alle_mikro = "F2+F3+F9+F10+F12+F13",   # Alle mikrospørgsmål
+            DI         = "F2+F4+F9+F10",
+            DST        = "F2+F3+F4+F5+F9")
 
 # =====================================================================
 # 1. FORBRUGSDATA
@@ -90,23 +98,23 @@ names(KV) <- sub("^value\\.", "", names(KV))
 # ---- Udtræk af de enkelte spørgsmål ----
 
 # Alle spørgsmål
-F2  <- KV[[grep("^F2 ",  colnames(KV))]]   # Familiens økonomi i dag vs. for et år siden
-F3  <- KV[[grep("^F3 ",  colnames(KV))]]   # Familiens økonomiske  situation om et år, sammenlignet med i dag
-F4  <- KV[[grep("^F4 ",  colnames(KV))]]   # Danmarks økonomi i dag vs. for et år siden
-F5  <- KV[[grep("^F5 ",  colnames(KV))]]   # Danmarks økonomiske situation om et år, sammenlignet med i dag
-F6  <- KV[[grep("^F6 ",  colnames(KV))]]   # Priser i dag, sammenlignet med for et år siden
-F7  <- KV[[grep("^F7 ",  colnames(KV))]]   # Priser om et år, sammenlignet med i dag
-F8  <- KV[[grep("^F8 ",  colnames(KV))]]   # Arbejdsløsheden om et år, sammenlignet med i dag
-F9  <- KV[[grep("^F9 ",  colnames(KV))]]   # Fordelagtigt at købe forbrugsgoder nu
-F10 <- KV[[grep("^F10 ", colnames(KV))]]   # Forbrugsgoder de næste 12 måneder
-F11 <- KV[[grep("^F11 ",  colnames(KV))]]  # Anser det som fornuftigt at spare op i den nuværende økonomiske situation
-F12 <- KV[[grep("^F12 ",  colnames(KV))]]  # Regner med at kunne spare op i de kommende 12 måneder
-F13 <- KV[[grep("^F13 ",  colnames(KV))]]  # Familiens økonomiske situation lige nu: kan spare/penge slår til/ bruger mere end man tjener
+F2  <- KV[[grep("^F2 ",  colnames(KV))]]   
+F3  <- KV[[grep("^F3 ",  colnames(KV))]]   
+F4  <- KV[[grep("^F4 ",  colnames(KV))]]   
+F5  <- KV[[grep("^F5 ",  colnames(KV))]]   
+F6  <- KV[[grep("^F6 ",  colnames(KV))]]   
+F7  <- KV[[grep("^F7 ",  colnames(KV))]]   
+F8  <- KV[[grep("^F8 ",  colnames(KV))]]   
+F9  <- KV[[grep("^F9 ",  colnames(KV))]]  
+F10 <- KV[[grep("^F10 ", colnames(KV))]]  
+F11 <- KV[[grep("^F11 ",  colnames(KV))]]  
+F12 <- KV[[grep("^F12 ",  colnames(KV))]]  
+F13 <- KV[[grep("^F13 ",  colnames(KV))]]  
 
 # ---- Vend fortegn ----
 # Spørgsmål hvor "stigning" er dårligt, og som derfor vendes (priser og arbejdsløshed)
 F6 <- F6 * (-1)
-F7 <- F7 * (-1) # Skal fjernes?
+F7 <- F7 * (-1) 
 F8 <- F8 * (-1)
 
 # ---- Saml spørgsmålene ----
@@ -129,21 +137,8 @@ F_total <- data.frame(
 rownames(F_total) <- format(KV$Kvartal)
 
 
-
 # =====================================================================
-# 4. KENDTE INDIKATORER
-# =====================================================================
-
-# Spørgsmålene skal stå i samme rækkefølge som i F_total (F2, F3, ..., F10, F12, F13)
-kendte <- c(MCCI       = "F2+F3+F9+F10",           # Artiklens mikrospørgsmål
-            EU_CCI     = "F3+F5+F8+F12",           # Europas indikator
-            Alle_mikro = "F2+F3+F9+F10+F12+F13",   # Alle mikrospørgsmål
-            DI         = "F2+F4+F9+F10",
-            DST        = "F2+F3+F4+F5+F9")
-
-
-# =====================================================================
-# 5. ALLE KOMBINATIONER AF INDIKATORER
+# 4. ALLE KOMBINATIONER AF INDIKATORER
 # =====================================================================
 
 # ---- Generér alle kombinationer ----
@@ -166,8 +161,7 @@ indikator_liste <- data.frame(matrix(nrow = nrow(F_total), ncol = 0))
 for (i in 1:length(liste)) {
   means <- rowMeans(liste[[i]]) # Beregner rowmeans af alle listeelementer
   indikator_liste <- cbind(indikator_liste, means) # Sætter dem sammen i samme dataframe
-  colnames(indikator_liste)[i] <- paste(colnames(liste[[i]]), collapse = "+")
-  # Indsætter navnene til at være en kombination af alle spørgsmål der indgår i indikatoren
+  colnames(indikator_liste)[i] <- paste(colnames(liste[[i]]), collapse = "+") # Indsætter navnene til at være en kombination af alle spørgsmål der indgår i indikatoren
 }
 
 # Dobbeltjek om indikator listen stemmer overens med F_total. Skal give det samme
@@ -183,7 +177,7 @@ indikator_liste$`F4+F10+F12`[1]
 Forbrug <- data.frame(realvaekst = Forbrugsdata$Forbrug_vaekst,
                       row.names = format(Forbrugsdata$Kvartal))
 
-# Kvartaler hvor vi har både indikatorer og forbrugsdata (i kronologisk orden)
+# Kvartaler hvor vi har både indikatorer og forbrugsdata
 faelles_kv <- intersect(rownames(F_total), rownames(Forbrug))
 
 faelles <- data.frame(Kvartal = as.Date(faelles_kv),
@@ -197,9 +191,8 @@ faelles <- data.frame(Kvartal = as.Date(faelles_kv),
                       check.names = FALSE, row.names = NULL)
 
 
-
 # =====================================================================
-# 6. DEN BEDSTE KOMBINATION AF INDIKATORER
+# 5. DEN BEDSTE KOMBINATION AF INDIKATORER
 # =====================================================================
 
 # Alle kolonner undtagen Kvartal og realvaekst er indikatorer
@@ -216,13 +209,45 @@ rangeret <- forklaringsgrader[order(forklaringsgrader$R, decreasing = TRUE), ]
 top_indikatorer <- rangeret[1:antal_top, ]
 
 
+# =====================================================================
+# 6. SAMMENLIGNING AF INDIKATORER
+# =====================================================================
+
+top_navne  <- rownames(top_indikatorer)
+alle_navne <- c(kendte, top_navne)
+
+Kendte_indikatorer <- forklaringsgrader[alle_navne, ]
+rownames(Kendte_indikatorer)[seq_along(kendte)] <- names(kendte)
 
 
-# Vil vi hellere omnavngive alle vores kendte indikatorer i et nyt forklaringsgrader dataframe
+# =====================================================================
+# 7. FORUDSIGELSER AF DE BEDSTE MODELLER
+# =====================================================================
 
-#top_navne  <- rownames(top_indikatorer)
-#alle_navne <- c(kendte, top_navne)
-#alle_navne
-#top_navne
+# Vælg indikatorer: de bedste + DI
+navne <- unique(c(rownames(rangeret)[1:antal_modeller], kendte[["DI"]]))
 
-#kendte_indikatorer <- forklaringsgrader[(alle_navne), ]
+# Kvartaler der mangler forbrugsdata = de næste kvartaler der skal forudsiges
+nye_kv <- setdiff(rownames(F_total), faelles_kv)
+
+# Loop: estimér en model pr. indikator og forudsig alle de nye kvartaler
+forudsagte_vaerdier <- data.frame()
+
+for (navn in navne) {
+  # Eget dataframe, så navnet på variablen i modellen altid er 'indikator'
+  data <- data.frame(realvaekst = faelles$realvaekst,
+                     indikator  = indikator_liste[faelles_kv, navn])
+  model <- lm(realvaekst ~ indikator, data = data)
+  
+  # Indikatorens værdier for de nye kvartaler
+  ny_data <- data.frame(indikator = indikator_liste[nye_kv, navn])
+
+  forudsagte_vaerdier <- rbind(
+    forudsagte_vaerdier,
+    data.frame(Indikator = navn,
+               Kvartal = nye_kv,
+               R2 = forklaringsgrader[navn, "R"],
+               Forudsagt = as.numeric(predict(model, newdata = ny_data)))
+  )
+}
+
