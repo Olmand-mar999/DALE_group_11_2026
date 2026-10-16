@@ -419,10 +419,11 @@ graf2 <- ggplot(g2, aes(x = R2, y = navn)) +
 
 print(graf2)
 
-
 # ---------------------------------------------------------------------
 # 8.3 Graf 3: Bedste indikator og DI vs. realvækst i privatforbruget
 # ---------------------------------------------------------------------
+
+vi_navn <- "VI"   # navnet på vores indikator i graf 3 (Vores Indikator)
 
 g3 <- data.frame(Kvartal    = as.Date(rownames(F_total)),
                  bedste     = indikator_liste[[bedste]],
@@ -442,7 +443,7 @@ graf3 <- ggplot(g3, aes(x = Kvartal)) +
   geom_hline(yintercept = 0, colour = "grey40", linewidth = 0.3) +
   geom_line(aes(y = di),     colour = graa,        linewidth = 1) +
   geom_line(aes(y = bedste), colour = groen_moerk, linewidth = 1.2) +
-  annotate("text", x = etiket_x, y = sidste$bedste, label = bedste,
+  annotate("text", x = etiket_x, y = sidste$bedste, label = vi_navn,
            hjust = 0, colour = groen_moerk, fontface = "bold", size = 3.8) +
   annotate("text", x = etiket_x, y = sidste$di, label = "DI",
            hjust = 0, colour = graa, fontface = "bold", size = 3.8) +
@@ -451,8 +452,8 @@ graf3 <- ggplot(g3, aes(x = Kvartal)) +
                                          name = "Årlig realvækst i privatforbruget, pct. (søjler)")) +
   scale_x_date(date_breaks = "2 years", date_labels = "%Y",
                expand = expansion(mult = c(0.01, 0.07))) +
-  labs(title = paste0(bedste, " følger privatforbruget tættere end DI's forbrugertillidsindikator"),
-       subtitle = paste0("Mørkegrøn linje: ", bedste, " (R² = ", fmt(rangeret[bedste, "R"]), "). ",
+  labs(title = paste0("Vores indikator (", vi_navn, ") følger privatforbruget tættere end DI's forbrugertillidsindikator"),
+       subtitle = paste0("Mørkegrøn linje: ", vi_navn, ", ", bedste, " (R² = ", fmt(rangeret[bedste, "R"]), "). ",
                          "Grå linje: DI, ", di, " (R² = ", fmt(forklaringsgrader[di, "R"]), "). ",
                          "Søjler: årlig realvækst i privatforbruget."),
        x = NULL,
@@ -464,8 +465,6 @@ graf3 <- ggplot(g3, aes(x = Kvartal)) +
         axis.text.y.right  = element_text(colour = groen_mid))
 
 print(graf3)
-
-
 # ---------------------------------------------------------------------
 # 8.4 Graf 4: Oplevet prisudvikling (F6) vs. faktisk inflation
 # ---------------------------------------------------------------------
