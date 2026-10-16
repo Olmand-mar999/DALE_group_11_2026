@@ -26,6 +26,13 @@ antal_top <- 5 # hvor mange af de bedste indikatorer vi gemmer
 # F13 Familiens økonomiske situation lige nu: kan spare / penge slår til / bruger mere end man tjener
 
 
+# Kendte indikatorer
+kendte <- c(MCCI       = "F2+F3+F9+F10",           # Artiklens mikrospørgsmål
+            EU_CCI     = "F3+F5+F8+F12",           # Europas indikator
+            Alle_mikro = "F2+F3+F9+F10+F12+F13",   # Alle mikrospørgsmål
+            DI         = "F2+F4+F9+F10",
+            DST        = "F2+F3+F4+F5+F9")
+
 # =====================================================================
 # 1. FORBRUGSDATA
 # =====================================================================
@@ -134,62 +141,6 @@ rownames(F_total) <- format(KV$Kvartal)
 # 3. DST indikator
 # =====================================================================
 
-#DST        = "F2+F3+F4+F5+F9")
-
-# ---- Klargør forbrugsdata og match mod indikatorerne ----
-Forbrug <- data.frame(realvaekst = Forbrugsdata$Forbrug_vaekst,
-                      row.names = format(Forbrugsdata$Kvartal))
-
-# Kvartaler hvor vi har både indikatorer og forbrugsdata
-faelles_kv <- intersect(rownames(F_total), rownames(Forbrug))
-
-faelles <- data.frame(Kvartal = as.Date(faelles_kv),
-                      realvaekst = Forbrug[faelles_kv, "realvaekst"],
-                      F2 = F2[1:nrow(Forbrug)],
-                      F3 = F3[1:nrow(Forbrug)],
-                      F4 = F4[1:nrow(Forbrug)],
-                      F5 = F5[1:nrow(Forbrug)],
-                      F9 = F9[1:nrow(Forbrug)],
-                      check.names = FALSE, row.names = NULL)
-
-
-# =====================================================================
-# 3. Multipel og PCA regression
-# =====================================================================
-
-# ---- udregn den multiple lineære regression ----
-
-# Multipel lineær regression
-multi <- lm(realvaekst ~ F2 + F3 + F4 + F5 + F9, data = faelles)
-summary(multi)
-
-# Der ryddes op i den multiple regression.
-# De indikatorer der er statistisk insignifikante fjernes.
-# F3 fjernes først. Derefter var det kun F2 der var insignifikant så den fjernes derefter 
-multi_ren <- lm(realvaekst ~  F4 + F5 + F9, data = faelles)
-summary(multi_ren)
-
-
-# Lineær regression for hvert enkelt spørgsmål
-lin_F2 <- lm(realvaekst ~ F2, data = faelles)
-lin_F3 <- lm(realvaekst ~  F3, data = faelles)
-lin_F4 <- lm(realvaekst ~  F4, data = faelles)
-lin_F5 <- lm(realvaekst ~  F5, data = faelles)
-lin_F9 <- lm(realvaekst ~  F9, data = faelles)
-summary(lin_F2)
-summary(lin_F3)
-summary(lin_F4)
-summary(lin_F5)
-summary(lin_F9)
-
-
-# PCA regression
-pcr.fit <- pcr(realvaekst ~ F2 + F3 + F4 + F5 + F9, data = faelles,
-               scale = TRUE )
-summary(pcr.fit)
-loadings.pcr.fit <- pcr.fit$loadings
-loadings.pcr.fit
-w.indicators.1 <- loadings.pcr.fit[1:5]^2
-w.indicators.1
-sum(w.indicators.1)
+# DST's fem spørgsmål hentes fra 'kendte'
+dst_sp <- strsplit(kendte[["DST"]], "+", fixed = TRUE)[[1]]
 
