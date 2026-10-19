@@ -151,5 +151,5 @@ Faelles$log_binary <- as.factor(Faelles$log_binary)
 Faelles$binary <- as.factor(Faelles$binary)
 
 # Der laves en confusion matrice for at se hvor god modellen er til at ramme rigtigt
-conf_matrix <- confusionMatrix(Faelles$binary, Faelles$log_binary)
+conf_matrix <- confusionMatrix(Faelles$log_binary, Faelles$binary)
 conf_matrix
