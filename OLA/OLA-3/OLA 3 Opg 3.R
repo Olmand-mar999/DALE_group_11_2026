@@ -127,9 +127,9 @@ mtext(
 
 
 # Lav logistisk regression og gem de forudsagte værdier som 0 eller 1
-log_model_DI  <- glm(binary ~ `F1 Forbrugertillidsindikatoren`, family = "binomial", data = Faelles)
+log_model  <- glm(binary ~ `F1 Forbrugertillidsindikatoren`, family = "binomial", data = Faelles)
 Faelles$log_binary <- ifelse(
-  predict(log_model_DI, type = "response") > 0.5, 1, 0)
+  predict(log_model, type = "response") > 0.5, 1, 0)
 
 
 # Find de kvartaler der skal forudsiges for
@@ -138,7 +138,7 @@ Forudsigelses_data$`F1 Forbrugertillidsindikatoren`
 #Forudsigelses_data <- rbind(Forudsigelses_data, 1:14)
 
 # Bestem sandsynligheden for om den forudsagte værdi er større eller lavere end julehandlen 2025
-Forud_vaekst <- predict(log_model_DI, newdata = Forudsigelses_data, type = "response")
+Forud_vaekst <- predict(log_model, newdata = Forudsigelses_data, type = "response")
 Forud_vaekst
 ifelse(Forud_vaekst > 0.5, "Højere", "Lavere")
 
