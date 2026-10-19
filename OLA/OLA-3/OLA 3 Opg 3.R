@@ -115,7 +115,7 @@ bp <- barplot(
   main = "Realvæksten er typisk lavere end julehandlen 2025 ",
   names.arg = c("Lavere", "Højere"),
   las = 1,
-  col = c("#D55E00", "#F4A261")
+  col = c("#558B2F", "#C5E1A5")
 )
 abline(0,0)
 
