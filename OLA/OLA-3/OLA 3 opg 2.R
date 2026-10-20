@@ -160,13 +160,26 @@ faelles <- data.frame(Kvartal = as.Date(faelles_kv),
 # 5. LINEÆRE OG MULTIPLE REGRESSIONER FOR ALLE SPØRGSMÅL
 # =====================================================================
 
+# Definer spørgsmål
+alle_sp <- setdiff(names(faelles), c("Kvartal", "realvaekst"))
+beholdte <- alle_sp
+
+# ---- Lineær regression for hvert enkelt spørgsmål ----
+enkelt <- data.frame()
+for (sp in alle_sp) {
+  s <- summary(lm(reformulate(sp, response = "realvaekst"), data = faelles))
+  enkelt <- rbind(enkelt, data.frame(
+    Spoergsmaal = sp,
+    Koefficient = s$coefficients[2, "Estimate"],
+    p_vaerdi    = s$coefficients[2, "Pr(>|t|)"],
+    R2          = s$r.squared
+  ))
+}
+enkelt
+
 # ---- Multipel lineær regression ----
 multi <- lm(realvaekst ~ ., data = faelles[, -1])
 summary(multi)
-
-# ---- Fjern insignifikante spørgsmål ét ad gangen (højeste p-værdi først) ----
-alle_sp <- setdiff(names(faelles), c("Kvartal", "realvaekst"))
-beholdte <- alle_sp
 
 # Signifikans niveau
 signifikans <- 0.05
@@ -190,18 +203,6 @@ repeat {
 beholdte            # Spørgsmål, der er tilbage
 summary(multi_ren)  # Resultat af den endelige regression
 
-# ---- Lineær regression for hvert enkelt spørgsmål ----
-enkelt <- data.frame()
-for (sp in alle_sp) {
-  s <- summary(lm(reformulate(sp, response = "realvaekst"), data = faelles))
-  enkelt <- rbind(enkelt, data.frame(
-    Spoergsmaal = sp,
-    Koefficient = s$coefficients[2, "Estimate"],
-    p_vaerdi    = s$coefficients[2, "Pr(>|t|)"],
-    R2          = s$r.squared
-  ))
-}
-enkelt
 
 # =====================================================================
 # 6. PCA REGRESSION
