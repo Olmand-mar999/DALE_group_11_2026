@@ -90,69 +90,57 @@ KV <- reshape(KV_lang, idvar = "Kvartal", timevar = "INDIKATOR", direction = "wi
 # # reshape sætter "value." foran alle kolonnenavne, så det fjernes her
 names(KV) <- sub("^value\\.", "", names(KV))
 
+
 # =====================================================================
 # 3. DST logistisk regression
 # =====================================================================
 
-# Lav et faelles dataframe der indeholder alle de rækker forbruget og KV har tilfælles
+# Samle forbrug og forventninger på de kvartaler, de har til fælles
 Faelles <- merge(Forbrugsdata, KV, by = "Kvartal")
 
-# Der laves en binær kolonne der viser hvor ofte
-# den kvartalvise årlige realvækst er større end julehandlen 2025
-# Væksten laves om til binære værdier, 0 for lavere og 1 for højere
-julehandel_2025 <- Faelles$Forbrug_vaekst[Faelles$Kvartal == "2025-10-01"]
-Faelles$binary <- ifelse(Forbrugsdata$Forbrug_vaekst > julehandel_2025, 1, 0)
+# Y: 1 hvis forbruget er større end samme kvartal året før, ellers 0 (faktor med faste niveauer)
+Faelles$binary <- factor(as.integer(Faelles$Forbrug_vaekst > 0), levels = c(0, 1))
 
-# Lav en tabel der indeholder fordelingen
-table_data <- table(Faelles$binary)
+# Fordeling af 0 og 1 i procent
+procent <- prop.table(table(Faelles$binary)) * 100
 
-# Lav plot der viser fordelingen
-bp <- barplot(
-  table_data,
-  ylim = c(0, 100),
-  ylab = "Procent",
-  xlab = "",
-  main = "Realvæksten er typisk lavere end julehandlen 2025 ",
-  names.arg = c("Lavere", "Højere"),
-  las = 1,
-  col = c("#558B2F", "#C5E1A5")
-)
-abline(0,0)
+# Søjlediagram over fordelingen
+barplot(procent,
+        ylim = c(0, 100),                                        # akse fra 0 til 100 pct.
+        ylab = "Procent",                                        # tekst på y-aksen
+        names.arg = c("Fald / ingen vækst", "Vækst"),            # navne på søjlerne
+        main = "Andel kvartaler med vækst i forbruget ift. året før",
+        las = 1,                                                 # vandrette tal på aksen
+        col = c("#558B2F", "#C5E1A5"))                           # farver
+abline(0, 0)                                                     # nullinje
 
-mtext(
-  "Kilde: Danmarks Statistik, NKN1, P.31 Husholdningernes forbrugsudgifter",
-  side = 1,
-  line = 4,
-  adj = 0)
+# Kildehenvisning under figuren
+mtext("Kilde: Danmarks Statistik, NKN1, P.31 Husholdningernes forbrugsudgifter",
+      side = 1, line = 4, adj = 0)
 
+# Logistisk regression: sandsynlighed for vækst givet forbrugertillidsindikatoren
+log_model <- glm(binary ~ `F1 Forbrugertillidsindikatoren`, family = binomial, data = Faelles)
 
-# Lav logistisk regression og gem de forudsagte værdier som 0 eller 1
-log_model  <- glm(binary ~ `F1 Forbrugertillidsindikatoren`, family = "binomial", data = Faelles)
-Faelles$log_binary <- ifelse(
-  predict(log_model, type = "response") > 0.5, 1, 0)
+# Koefficienter og p-værdier
+summary(log_model)
 
+# Forudsagt 0/1 for kvartalerne i data (faktor med begge niveauer, så caret ikke fejler)
+Faelles$log_binary <- factor(as.integer(predict(log_model, type = "response") > 0.5), levels = c(0, 1))
 
-# Find de kvartaler der skal forudsiges for
+# Kvartaler uden kendt forbrug, hvor vi kender indikatoren
 Forudsigelses_data <- KV[!KV$Kvartal %in% Faelles$Kvartal, ]
-Forudsigelses_data$`F1 Forbrugertillidsindikatoren`
-#Forudsigelses_data <- rbind(Forudsigelses_data, 1:14)
 
-# Bestem sandsynligheden for om den forudsagte værdi er større eller lavere end julehandlen 2025
-Forud_vaekst <- predict(log_model, newdata = Forudsigelses_data, type = "response")
-Forud_vaekst
-ifelse(Forud_vaekst > 0.5, "Højere", "Lavere")
+# Sandsynlighed for vækst i de kvartaler
+p <- predict(log_model, newdata = Forudsigelses_data, type = "response")
+
+# Vis kvartal, sandsynlighed og forudsigelse samlet, så man kan se hvilken række der er hvilket kvartal
+data.frame(Kvartal = Forudsigelses_data$Kvartal,
+           sandsynlighed = p,
+           forudsagt = ifelse(p > 0.5, "Vækst", "Fald"))
 
 # =====================================================================
-# 4. confusion matrix
+# 4. Confusion matrix
 # =====================================================================
 
-# Confusion matrix tager kun faktorer som argument
-Faelles$log_binary <- as.factor(Faelles$log_binary)
-Faelles$binary <- as.factor(Faelles$binary)
-
-# Der laves en confusion matrice for at se hvor god modellen er til at ramme rigtigt
-conf_matrix <- confusionMatrix(Faelles$log_binary, Faelles$binary)
-conf_matrix
-
-
-
+# positive = "1" gør vækst til den positive klasse; Accuracy skal sammenlignes med No Information Rate
+confusionMatrix(data = Faelles$log_binary, reference = Faelles$binary, positive = "1")
