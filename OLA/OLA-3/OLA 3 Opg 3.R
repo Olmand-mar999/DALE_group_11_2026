@@ -9,7 +9,6 @@ options(scipen = 999)
 tidszone         <- "Europe/Copenhagen"
 startdato        <- as.Date("2000-01-01")   # første kvartal der bruges (forbrug og forventninger)
 Q_pr_aar <- 4                       # bruges til årlig vækst
-antal_top <- 5 # hvor mange af de bedste indikatorer vi gemmer
 
 # Spørgsmål der indgår i alle kombinationer
 # F2  Familiens økonomi i dag vs. for et år siden

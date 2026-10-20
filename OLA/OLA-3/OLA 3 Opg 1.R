@@ -599,4 +599,3 @@ if (length(nye_kv) == 0) {
   
   print(graf5)
 }
-
