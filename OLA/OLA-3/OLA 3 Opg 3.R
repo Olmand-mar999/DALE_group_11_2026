@@ -155,3 +155,4 @@ conf_matrix <- confusionMatrix(Faelles$log_binary, Faelles$binary)
 conf_matrix
 
 
+
