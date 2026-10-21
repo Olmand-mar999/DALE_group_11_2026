@@ -2,14 +2,13 @@
 # 0. OPSÆTNING
 # =====================================================================
 library(dkstat)
-library(pls)
+library(caret)
 options(scipen = 999)
 
 # ---- Indstillinger ----
 tidszone         <- "Europe/Copenhagen"
 startdato        <- as.Date("2000-01-01")   # første kvartal der bruges (forbrug og forventninger)
 Q_pr_aar <- 4                       # bruges til årlig vækst
-antal_top <- 5 # hvor mange af de bedste indikatorer vi gemmer
 
 # Spørgsmål der indgår i alle kombinationer
 # F2  Familiens økonomi i dag vs. for et år siden
@@ -104,19 +103,40 @@ Faelles$binary <- factor(as.integer(Faelles$Forbrug_vaekst > 0), levels = c(0, 1
 # Fordeling af 0 og 1 i procent
 procent <- prop.table(table(Faelles$binary)) * 100
 
-# Søjlediagram over fordelingen
-barplot(procent,
-        ylim = c(0, 100),                                        # akse fra 0 til 100 pct.
-        ylab = "Procent",                                        # tekst på y-aksen
-        names.arg = c("Fald / ingen vækst", "Vækst"),            # navne på søjlerne
-        main = "Andel kvartaler med vækst i forbruget ift. året før",
-        las = 1,                                                 # vandrette tal på aksen
-        col = c("#558B2F", "#C5E1A5"))                           # farver
-abline(0, 0)                                                     # nullinje
+library(ggplot2)
 
-# Kildehenvisning under figuren
-mtext("Kilde: Danmarks Statistik, NKN1, P.31 Husholdningernes forbrugsudgifter",
-      side = 1, line = 4, adj = 0)
+# Data til søjlediagrammet
+data <- data.frame(
+  kategori = c("Fald / ingen vækst", "Vækst"),
+  procent = as.numeric(procent)
+)
+
+# Søjlediagram
+ggplot(data, aes(x = kategori, y = procent, fill = kategori)) +
+  geom_col(width = 0.6) +  # Grønne farver
+  scale_fill_manual(values = c(
+    "Fald / ingen vækst" = "#558B2F",
+    "Vækst" = "#C5E1A5"
+  )) +
+  scale_y_continuous( # Y-akse fra 0 til 100 med intervaller på 10
+    limits = c(0, 100),
+    breaks = seq(0, 100, 10),
+    expand = c(0, 0)
+  ) +
+  labs( # Titel og aksetekster
+    title = "Der har været vækst i størstedelen af alle kvartaler",
+    x = NULL,
+    y = "Procent",
+    caption = "Kilde: Danmarks Statistik, NKN1, P.31 Husholdningernes forbrugsudgifter"
+  ) +
+  theme_minimal() + # Design
+  theme(
+    panel.grid.major.y = element_line(color = "#E0E0E0"),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    legend.position = "none",
+    plot.caption = element_text(hjust = 0)
+  )
 
 # Logistisk regression: sandsynlighed for vækst givet forbrugertillidsindikatoren
 log_model <- glm(binary ~ `F1 Forbrugertillidsindikatoren`, family = binomial, data = Faelles)
