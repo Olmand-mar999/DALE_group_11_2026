@@ -1,125 +1,188 @@
+# =====================================================================
+# 0. OPSÆTNING
+# =====================================================================
 library(dkstat)
 library(caret)
+library(ggplot2)
+options(scipen = 999)
 
-# 3.1---------------------------------------------------------------------------
+# ---- Indstillinger ----
+tidszone         <- "Europe/Copenhagen"
+startdato        <- as.Date("1994-01-01")   # første kvartal der bruges (forbrug og forventninger)
+traeningsdato    <- as.Date("2015-01-01")   # Hvor meget af den historiske data der bruges til træning af modellen
+Q_pr_aar <- 4                       # bruges til årlig vækst
 
-# Hentning af forbrugsdata
+# Spørgsmål der indgår i alle kombinationer
+# F2  Familiens økonomi i dag vs. for et år siden
+# F3  Familiens økonomiske situation om et år, sammenlignet med i dag
+# F4  Danmarks økonomi i dag vs. for et år siden
+# F5  Danmarks økonomiske situation om et år, sammenlignet med i dag
+# F6  Priser i dag, sammenlignet med for et år siden
+# F7  Priser om et år, sammenlignet med i dag
+# F8  Arbejdsløsheden om et år, sammenlignet med i dag
+# F9  Fordelagtigt at købe forbrugsgoder nu
+# F10 Forbrugsgoder de næste 12 måneder
+# F11 Fornuftigt at spare op i den nuværende situation
+# F12 Regner med at kunne spare op i de kommende 12 måneder
+# F13 Familiens økonomiske situation lige nu: kan spare / penge slår til / bruger mere end man tjener
+
+
+# Kendte indikatorer
+kendte <- c(MCCI       = "F2+F3+F9+F10",           # Artiklens mikrospørgsmål
+            EU_CCI     = "F3+F5+F8+F12",           # Europas indikator
+            Alle_mikro = "F2+F3+F9+F10+F12+F13",   # Alle mikrospørgsmål
+            DI         = "F2+F4+F9+F10",
+            DST        = "F2+F3+F4+F5+F9")
+
+# =====================================================================
+# 1. FORBRUGSDATA
+# =====================================================================
+
+# ---- Hentning af forbrugsdata ----
 Forbrugsdata <- dst_get_data("NKN1", query = list(TRANSAKT = "*", PRISENHED = "*", SÆSON = "*", Tid = "*"))
 
 ##### Måske skal P31S14D eller P31S1MD bruges #####
-# Behold husholdningernes forbrugsudgifter (P31S14D), kædede værdier i mia. kr. (LKV_M), sæsonkorrigeret (Y)
-Dummy_data <- Forbrugsdata[grepl("^P31S14D", Forbrugsdata$TRANSAKT) &
-                             grepl("^LKV_M ", Forbrugsdata$PRISENHED) &
-                             grepl("^Y ", Forbrugsdata$SÆSON), ]
+# Husholdningernes forbrugsudgifter (P31S14D), kædede værdier i mia. kr. (LKV_M), sæsonkorrigeret (Y)
+Forbrugsdata <- Forbrugsdata[grepl("^P31S14D", Forbrugsdata$TRANSAKT) &
+                               grepl("^LKV_M ", Forbrugsdata$PRISENHED) &
+                               grepl("^Y ", Forbrugsdata$SÆSON), ]
 
 # ---- Årlig realvækst pr. kvartal ----
 # Forbruget som almindelig vektor og antal kvartaler
-x <- Dummy_data$value
+x <- Forbrugsdata$value
 n <- length(x)
 
-# Vækst i pct. for hvert kvartal i forhold til samme kvartal året før (4 kvartaler tidligere)
-Dummy <- (x[5:n] / x[1:(n - 4)] - 1) * 100
+# Vækst i pct. i forhold til samme kvartal året før
+Forbrugsdata_vaekst <- (x[(Q_pr_aar + 1):n] / x[1:(n - Q_pr_aar)] - 1) * 100
 
 # Saml kvartalsdato og vækst i en tabel
-Dummy <- data.frame(Kvartal = as.Date(Dummy_data$TID[5:n], tz = "Europe/Copenhagen"),
-                    Forbrug_vaekst = Dummy)
+Forbrugsdata <- data.frame(Kvartal = as.Date(Forbrugsdata$TID[(Q_pr_aar + 1):n], tz = tidszone),
+                           Forbrug_vaekst = Forbrugsdata_vaekst)
 
-# Behold kun rækker fra og med 1. kvartal 1998
-Dummy <- Dummy[Dummy$Kvartal >= as.Date("1998-01-01"), ]
+# Behold kun rækker fra og med startdato
+Forbrugsdata <- Forbrugsdata[Forbrugsdata$Kvartal >= startdato, ]
 
-# Find hvor ofte den kvartalvise årlige realvækst falder (er negativ)
-# Væksten laves om til binære værdier, 0 for negativ og 1 for positiv
-Dummy$binary <- ifelse(Dummy$Forbrug_vaekst > 0, 1, 0)
 
-# Lav en tabel der indeholder fordelingen
-table_data <- table(Dummy$binary)
+# =====================================================================
+# 2. FORBRUGERTILLIDSUNDERSØGELSEN (FORVENTNINGER)
+# =====================================================================
 
-# Lav plot der viser fordelingen
-bp <- barplot(
-  table_data,
-  ylim = c(0, 100),
-  ylab = "Procent",
-  xlab = "",
-  main = "Realvæksten er positiv næsten 75% af gangene over tid ",
-  names.arg = c("Negativ", "Positiv"),
-  las = 1,
-  col = c("#D55E00", "#F4A261")
-)
-abline(0,0)
-
-mtext(
-  "Kilde: Danmarks Statistik, NKN1, P.31 Husholdningernes forbrugsudgifter",
-  side = 1,
-  line = 4,
-  adj = 0)
-
-# 3.2  Hent forbrugertillidsundersøgelsen---------------------------------------
+# ---- Hentning ----
 Forventninger <- dst_get_data("FORV1", query = list(INDIKATOR = "*", Tid = "*"))
 
+# ---- Tid og afgrænsning ----
 # Tidskolonne sættes til datoformat
-Forventninger$TID <- as.Date(Forventninger$TID, tz = "Europe/Copenhagen")
+Forventninger$TID <- as.Date(Forventninger$TID, tz = tidszone)
 
-# Behold kun rækker fra og med 1. januar 1998
-Forventninger <- Forventninger[Forventninger$TID >= as.Date("1998-01-01"), ]
+# Behold kun rækker fra og med 1. januar 2000
+Forventninger <- Forventninger[Forventninger$TID >= startdato, ]
 
+# ---- Aggregering til kvartaler ----
 # Placér hver måned i sit kvartal. Kvartalet får datoen på kvartalets første dag
 Forventninger$Kvartal <- as.Date(cut(Forventninger$TID, "quarter"))
 
 # Beregn gennemsnittet af value for hver kombination af kvartal og indikator
 KV_lang <- aggregate(value ~ Kvartal + INDIKATOR, data = Forventninger, FUN = mean)
 
+# ---- Fra lang til bred tabel ----
 # Gør tabellen "bred": én række pr. kvartal og én kolonne pr. indikator
 KV <- reshape(KV_lang, idvar = "Kvartal", timevar = "INDIKATOR", direction = "wide")
 
 # # reshape sætter "value." foran alle kolonnenavne, så det fjernes her
 names(KV) <- sub("^value\\.", "", names(KV))
 
-# DI-FTI's fire spørgsmål
-F2  <- KV[[grep("^F2 ",  colnames(KV))]]   # Familiens økonomi i dag vs. for et år siden
-F4  <- KV[[grep("^F4 ",  colnames(KV))]]   # Danmarks økonomi i dag vs. for et år siden
-F9  <- KV[[grep("^F9 ",  colnames(KV))]]   # Fordelagtigt at købe forbrugsgoder nu
-F10 <- KV[[grep("^F10 ", colnames(KV))]]   # Forbrugsgoder de næste 12 måneder
 
-# DI-FTI er det simple gennemsnit af de fire spørgsmål
-DI_FTI <- data.frame(DI = (F2 + F4 + F9 + F10) / 4)
+# =====================================================================
+# 3. DST logistisk regression
+# =====================================================================
 
-#Tilføj kvartaler til DI
-DI_FTI$Kvartal <- KV$Kvartal
+# ---- gem forbrug og tillidsindikator i fælles dataframe og lav binary kolonne ----
+# Samle forbrug og forventninger på de kvartaler, de har til fælles
+Faelles <- merge(Forbrugsdata, KV, by = "Kvartal")
 
-# 3.2 Logistisk regression------------------------------------------------------
+# Y: 1 hvis forbruget er større end samme kvartal året før, ellers 0 (faktor med faste niveauer)
+Faelles$binary <- factor(as.integer(Faelles$Forbrug_vaekst > 0), levels = c(0, 1))
 
-# Sæt vækst og indikatorer sammen via kvartalsdatoen
-data_col <- merge(DI_FTI, Dummy, by = "Kvartal")
 
-# Lav logistisk regression og gem de forudsagte værdier som o eller 1
-log_model_DI  <- glm(binary ~ DI, family = "binomial", data = data_col)
-data_col$log_binary <- ifelse(predict(log_model_DI) > 0, 1, 0)
+# Træningsdata gemmes
+# Den skal ikke have alt data til træning, da det ellers ikke kan bestemmes hvor modellen faktisk er
+traeningsdata <- Faelles[Faelles$Kvartal <= traeningsdato,]
 
-# Gem DI-tillidsindikatoren for 3. kvartal
-Forud_DI <- DI_FTI[DI_FTI$Kvartal == as.Date("2026-07-01"), ]
-Forud_DI <- data.frame(DI = Forud_DI[,1])
-Forud_DI # -13.308
+# Testdata er alt data der kommer efter træningen
+# Bruges til at bestemme hvor god modellen faktisk er efter den er blevet trænet
+testdata <- Faelles[Faelles$Kvartal > traeningsdato,]
 
-# Nu kendes den forudsagte værdi. 
-# Den logistiske regression kan nu bruges til at forudsige om den forudsagte værdi
-# Vil være positiv eller negativ
-Forud_vaekst <- predict(log_model_DI, newdata = Forud_DI)
-Forud_vaekst # 0.058
-ifelse(Forud_vaekst > 0.5, "OP", "NED")
+# Logistisk regression: sandsynlighed for vækst givet forbrugertillidsindikatoren ud fra træningsdata
+log_model <- glm(binary ~ `F1 Forbrugertillidsindikatoren`, family = binomial, data = traeningsdata)
 
-# 3.3---------------------------------------------------------------------------
+# Koefficienter og p-værdier
+summary(log_model)
 
-# Confusion matrix tager kun faktorer som argument
-data_col$log_binary <- as.factor(data_col$log_binary)
-data_col$binary <- as.factor(data_col$binary)
+# Sandsynlighed for vækst i de kvartaler der er i testdata
+p <- predict(log_model, newdata = testdata, type = "response")
 
-# Der laves en confusion matrice for at se hvor god modellen er til at ramme rigtigt
-conf_matrix <- confusionMatrix(data_col$binary, data_col$log_binary)
-conf_matrix
+# Bestem binære værdier for de predictede testdata værdier
+testdata$log_binary <- factor(ifelse(p > 0.5, 1, 0), levels = c(0, 1))
 
-# Modellen finder 1,1 81 gange og der er 18 gange den ikke gør.
-accurracy <- 81/(81+18)
-accurracy <- conf_matrix$table[2,2]/(conf_matrix$table[2,2] + conf_matrix$table[1,2])
-accurracy
-# Den gætter rigtigt at den stiger 81,8% af gangene
-# Samlet set har den en accurracy på 79,8%
+# Vis kvartal, sandsynlighed og forudsigelse samlet, så man kan se hvilken række der er hvilket kvartal
+data.frame(Kvartal = testdata$Kvartal,
+           sandsynlighed = p,
+           forudsagt = ifelse(p > 0.5, "Vækst", "Fald"))
+
+# Forudsigelse for Kvartaler uden kendt forbrug, hvor vi kender indikatoren.
+Forudsigelses_data <- KV[!KV$Kvartal %in% Faelles$Kvartal, ]
+
+# Sandsynlighed for vækst i de kvartaler vi vil forudsige
+forud <- predict(log_model, newdata = Forudsigelses_data, type = "response")
+
+# Vis kvartal, sandsynlighed og forudsigelse samlet, for de kvartaler vi ikke har realvækst for
+data.frame(Kvartal = Forudsigelses_data$Kvartal,
+           sandsynlighed = forud,
+           forudsagt = ifelse(forud > 0.5, "Vækst", "Fald"))
+
+# =====================================================================
+# 4. Confusion matrix
+# =====================================================================
+
+# positive = "1" gør vækst til den positive klasse; Accuracy skal sammenlignes med No Information Rate
+confusionMatrix(data = testdata$log_binary, reference = testdata$binary, positive = "1")
+
+# =====================================================================
+# 5. graf
+# =====================================================================
+
+# Fordeling af 0 og 1 i procent
+procent <- prop.table(table(Faelles$binary)) * 100
+
+# Data til søjlediagrammet
+data <- data.frame(
+  kategori = c("Fald / ingen vækst", "Vækst"),
+  procent = as.numeric(procent)
+)
+
+# Søjlediagram
+ggplot(data, aes(x = kategori, y = procent, fill = kategori)) +
+  geom_col(width = 0.6) +  # Grønne farver
+  scale_fill_manual(values = c(
+    "Fald / ingen vækst" = "#558B2F",
+    "Vækst" = "#C5E1A5"
+  )) +
+  scale_y_continuous( # Y-akse fra 0 til 100 med intervaller på 10
+    limits = c(0, 100),
+    breaks = seq(0, 100, 10),
+    expand = c(0, 0)
+  ) +
+  labs( # Titel og aksetekster
+    title = "Der har været vækst i størstedelen af alle kvartaler",
+    x = NULL,
+    y = "Procent",
+    caption = "Kilde: Danmarks Statistik, NKN1, P.31 Husholdningernes forbrugsudgifter"
+  ) +
+  theme_minimal() + # Design
+  theme(
+    panel.grid.major.y = element_line(color = "#E0E0E0"),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    legend.position = "none",
+    plot.caption = element_text(hjust = 0)
+  )
