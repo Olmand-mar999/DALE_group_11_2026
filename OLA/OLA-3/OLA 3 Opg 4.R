@@ -264,6 +264,10 @@ gennemsnitlig_rangering[gennemsnitlig_rangering$Indikator %in% kendte, ]
 # 7. graf over udviklingen af realvækst over tid
 # =====================================================================
 
+# Hent kun data for faktisk realvækst
+plot_data <- faelles %>%
+  select(Kvartal, realvaekst)
+
 ggplot(plot_data, aes(x = Kvartal, y = realvaekst)) +
   geom_col(
     fill = "#C5E1A5",
@@ -349,3 +353,4 @@ ggplot(plot_data, aes(x = Kvartal)) +
     panel.grid.minor = element_blank(),
     plot.caption = element_text(hjust = 0)
   )
+
