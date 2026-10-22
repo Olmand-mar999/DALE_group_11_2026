@@ -47,28 +47,68 @@ hent <- function(param, station, fra, til) {
 anholt_fart22 <- hent(param_fart, anholt, fra_2022, til_2022)
 anholt_retning22 <- hent(param_retning, anholt, fra_2022, til_2022)
 anholt_stoed22 <- hent(param_stoed, anholt, fra_2022, til_2022)
-anholt22 <- rbind(anholt_fart22, anholt_retning22, anholt_stoed22)
 
 # Aarhus 2022
 aarhus_fart22 <- hent(param_fart, aarhus, fra_2022, til_2022)
 aarhus_retning22 <- hent(param_retning, aarhus, fra_2022, til_2022)
 aarhus_stoed22 <- hent(param_stoed, aarhus, fra_2022, til_2022)
-aarhus22 <- rbind(aarhus_fart22, aarhus_retning22, aarhus_stoed22)
 
 # Anholt 2023
 anholt_fart23 <- hent(param_fart, anholt, fra_2023, til_2023)
 anholt_retning23 <- hent(param_retning, anholt, fra_2023, til_2023)
 anholt_stoed23 <- hent(param_stoed, anholt, fra_2023, til_2023)
-anholt23 <- rbind(anholt_fart23, anholt_retning23, anholt_stoed23)
 
 # Aarhus 2022
 aarhus_fart23 <- hent(param_fart, aarhus, fra_2023, til_2023)
 aarhus_retning23 <- hent(param_retning, aarhus, fra_2023, til_2023)
 aarhus_stoed23 <- hent(param_stoed, aarhus, fra_2023, til_2023)
-aarhus23 <- rbind(aarhus_fart23, aarhus_retning23, aarhus_stoed23)
 
 # Kegnaes 2022
 kegnaes_fart23 <- hent(param_fart, kegnaes, fra_2023, til_2023)
 kegnaes_retning23 <- hent(param_retning, kegnaes, fra_2023, til_2023)
 kegnaes_stoed23 <- hent(param_stoed, kegnaes, fra_2023, til_2023)
-kegnaes23 <- rbind(kegnaes_fart23, kegnaes_retning23, kegnaes_stoed23)
+
+# =====================================================================
+# 3. dataframes fra data
+# =====================================================================
+
+# dataframe med anholt 22
+anholt22 <- data.frame(
+  periode = anholt_fart22$observed,
+  Station_id = anholt_fart22$stationId,
+  fart = anholt_fart22$value, 
+  retning = anholt_retning22$value, 
+  stoed = anholt_stoed22$value)
+  
+# dataframe med anholt 23
+anholt23 <- data.frame(
+  periode = anholt_fart23$observed,
+  Station_id = anholt_fart23$stationId,
+  fart = anholt_fart23$value, 
+  retning = anholt_retning23$value, 
+  stoed = anholt_stoed23$value)
+
+# dataframe med aarhus 22
+aarhus22 <- data.frame(
+  periode = aarhus_fart22$observed,
+  Station_id = aarhus_fart22$stationId,
+  fart = aarhus_fart22$value, 
+  retning = aarhus_retning22$value, 
+  stoed = aarhus_stoed22$value)
+
+# dataframe med aarhus 23
+aarhus23 <- data.frame(
+  periode = aarhus_fart23$observed,
+  Station_id = aarhus_fart23$stationId,
+  fart = aarhus_fart23$value, 
+  retning = aarhus_retning23$value, 
+  stoed = aarhus_stoed23$value)
+
+# dataframe med kegnaes 23
+kegnaes23 <- data.frame(
+  periode = kegnaes_fart23$observed,
+  Station_id = kegnaes_fart23$stationId,
+  fart = kegnaes_fart23$value, 
+  retning = kegnaes_retning23$value, 
+  stoed = kegnaes_stoed23$value)
+
