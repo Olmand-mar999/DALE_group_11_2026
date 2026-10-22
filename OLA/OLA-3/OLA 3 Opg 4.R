@@ -2,6 +2,8 @@
 # 0. OPSÆTNING
 # =====================================================================
 library(dkstat)
+library(ggplot2)
+library(dplyr)
 options(scipen = 999)
 
 # ---- Indstillinger ----
@@ -256,3 +258,94 @@ colnames(gennemsnitlig_rangering) <- c("Indikator", "Gennemsnitlig_rang", "Genne
 
 # Hvor stabile er de kendte indikatorer (MCCI, DI osv.) til sammenligning?
 gennemsnitlig_rangering[gennemsnitlig_rangering$Indikator %in% kendte, ]
+
+
+# =====================================================================
+# 7. graf over udviklingen af realvækst over tid
+# =====================================================================
+
+ggplot(plot_data, aes(x = Kvartal, y = realvaekst)) +
+  geom_col(
+    fill = "#C5E1A5",
+    width = 80
+  ) +
+  scale_x_date(
+    date_breaks = "2 years",
+    date_labels = "%Y"
+  ) +
+  scale_y_continuous(
+    breaks = seq(-10, 15, by = 1)
+  ) +
+  labs(
+    title = "Realvæksten bliver meget ustabil og svingende startende fra 2020",
+    subtitle = "Årlig realvækst fordelt på kvartaler",
+    x = "Kvartal",
+    y = "Realvækst (%)",
+    caption = "Kilde: Danmarks Statistik, NKN1"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid.minor = element_blank(),
+    plot.caption = element_text(hjust = 0)
+  )
+
+
+# =====================================================================
+# 8. graf med realvækst og bedste indikator
+# =====================================================================
+
+# Find indikatoren med den bedste gennemsnitlige rangering
+bedste_indikator <- gennemsnitlig_rangering %>%
+  slice_min(Gennemsnitlig_rang, n = 1, with_ties = FALSE) %>%
+  pull(Indikator)
+
+# Hent data for faktisk realvækst og den bedste indikator
+plot_data <- faelles %>%
+  select(Kvartal, realvaekst, all_of(bedste_indikator)) %>%
+  rename(Indikator_vaerdi = all_of(bedste_indikator))
+
+# Beregn skaleringsfaktor, så indikatoren kan vises sammen med realvæksten
+faktor <- max(abs(plot_data$realvaekst), na.rm = TRUE) /
+  max(abs(plot_data$Indikator_vaerdi), na.rm = TRUE)
+
+# Tegn plottet
+ggplot(plot_data, aes(x = Kvartal)) +
+  geom_col(
+    aes(y = realvaekst),
+    fill = "grey90",
+    width = 80
+  ) +
+  geom_line(
+    aes(y = Indikator_vaerdi * faktor),
+    color = "#558B2F",
+    linewidth = 1
+  ) +
+  scale_x_date(
+    date_breaks = "2 years",
+    date_labels = "%Y"
+  ) +
+  scale_y_continuous(
+    name = "Faktisk realvækst (%)",
+    breaks = seq(
+      floor(min(plot_data$realvaekst, na.rm = TRUE)),
+      ceiling(max(plot_data$realvaekst, na.rm = TRUE)),
+      by = 1
+    ),
+    sec.axis = sec_axis(
+      ~ . / faktor,
+      name = "Nettotal"
+    )
+  ) +
+  labs(
+    title = "Vores bedste indikator følger realvæksten bedst over hele perioden fra 2020-2026",
+    subtitle = paste("Indikator med laveste gennemsnitlige rang:", bedste_indikator),
+    x = "Kvartal",
+    caption = "Kilde: Danmarks Statistik, NKN1 og FORV1"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid.minor = element_blank(),
+    plot.caption = element_text(hjust = 0)
+  )
