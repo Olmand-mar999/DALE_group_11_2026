@@ -234,5 +234,5 @@ model <- lm(realvaekst ~ indikator, data = faelles_ind)
 
 ny <- data.frame(indikator = as.numeric(as.matrix(F_total[nye_kv, names(vaegte)]) %*% vaegte))
 
-forudsagt <- data.frame(Kvartal = nye_kv, Forudsagt = predict(model, newdata = ny))
+forudsagt <- data.frame(Kvartal = nye_kv, Forudsagt = predict(model, newdata = ny, ncomp = 1))
 forudsagt
