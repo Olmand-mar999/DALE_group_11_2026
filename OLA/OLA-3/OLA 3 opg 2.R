@@ -267,6 +267,9 @@ tema_opgave <- theme_minimal(base_size = 12) +
 
 fmt <- function(x, d = 2) format(round(x, d), nsmall = d, decimal.mark = ",")
 
+# Loadings hentes direkte fra PCA-modellen
+loadings.pcr.fit <- pcr.fit$loadings
+
 # Spørgsmålene i PCA-regressionen hentes direkte fra modellen (virker med 5 eller 11 spørgsmål)
 pca_sp  <- rownames(loadings.pcr.fit)
 n_sp    <- length(pca_sp)
@@ -288,9 +291,12 @@ graf6 <- ggplot(g6, aes(x = komp)) +
   geom_text(aes(y = x, label = paste0(fmt(x, 0), " %")), vjust = -0.5, size = 3.5, colour = groen_mid) +
   geom_line(aes(y = y, group = 1), colour = groen_moerk, linewidth = 1.1) +
   geom_point(aes(y = y), colour = groen_moerk, size = 3) +
-  geom_text(aes(y = y, label = paste0(fmt(y, 0), " %")), vjust = -1, size = 3.5,
-            colour = groen_moerk, fontface = "bold") +
-  scale_y_continuous(name = "Pct.", limits = c(0, 112), expand = expansion(mult = c(0, 0))) +
+  geom_text(aes(y = y, label = paste0(fmt(y, 0), " %"),
+                hjust = ifelse(komp == "1", -0.35, 0.5),      # 1. etiket til højre, så den ikke rammer linjen
+                vjust = ifelse(komp == "1", 0.5, -1)),
+            size = 3.5, colour = groen_moerk, fontface = "bold") +
+  scale_y_continuous(name = "Pct.", limits = c(0, ceiling(max(ve_x, r2_y) * 1.15 / 10) * 10),
+                     breaks = seq(0, 100, 10), expand = expansion(mult = c(0, 0))) +
   labs(title = paste0("1. komponent samler ", fmt(ve_x[1], 0), " pct. af variationen i ", sp_navn,
                       " og forklarer ", fmt(r2_y[1], 0), " pct. af realvæksten"),
        subtitle = paste0("Søjler: andel af variationen i spørgsmålene pr. komponent.\n",
@@ -420,25 +426,27 @@ graf8 <- ggplot(hist_df, aes(x = Kvartal)) +
   geom_line(data = frem_df, aes(y = forudsagt), colour = groen_moerk,
             linewidth = 1.1, linetype = "dashed") +
   geom_point(data = nye, aes(y = forudsagt), colour = groen_moerk, size = 3.5) +
-  annotate("text", x = nye_lab$Kvartal, y = nye_lab$forudsagt,
-           label = paste0(kv_navn(nye_lab$Kvartal), ": ", fmt(nye_lab$forudsagt, 1), " pct."),
-           hjust = 1.1, vjust = -1, colour = groen_moerk, fontface = "bold", size = 3.6) +
+  # Etiket med alle forudsagte kvartaler, placeret over punkterne med hvid baggrund
+  annotate("label", x = nye_lab$Kvartal, y = nye_lab$forudsagt + 1.5,
+           label = paste(paste0(kv_navn(nye$Kvartal), ": ", fmt(nye$forudsagt, 1), " pct."), collapse = "\n"),
+           hjust = 1, vjust = 0, colour = groen_moerk, fontface = "bold", size = 3.4,
+           fill = "white", label.size = 0) +
   # Testen af 2025K3 (model estimeret til og med 2025K2)
   geom_point(data = q3, aes(y = test), shape = 21, fill = "white", colour = graa,
              size = 3.5, stroke = 1.3) +
-  annotate("text", x = q3_dato, y = q3$test,
+  annotate("label", x = q3_dato, y = q3$test - 0.5,
            label = paste0("Test 2025K3: ", fmt(q3$test, 1), " pct.\n(faktisk ", fmt(q3$realvaekst, 1), " pct.)"),
-           hjust = 1.1, vjust = 1.3, colour = "grey35", size = 3.3) +
+           hjust = 0.5, vjust = 1, colour = "grey35", size = 3.2,
+           fill = "white", label.size = 0) +   # under punktet
   scale_x_date(date_breaks = "2 years", date_labels = "%Y", expand = expansion(mult = c(0.01, 0.02))) +
   scale_y_continuous(name = "Årlig realvækst, pct.") +
   labs(title = titel8,
-       subtitle = paste0("Søjler: faktisk årlig realvækst i husholdningernes forbrugsudgift. ",
-                         "Linje: forudsagt med PCA-modellen, stiplet = forudsigelse af ",
+       subtitle = paste0("Søjler: faktisk årlig realvækst. Linje: forudsagt med PCA-modellen, stiplet = ",
                          paste(kv_navn(nye$Kvartal), collapse = " og "), ".\n",
-                         "Gennemsnitlig fejl (faktisk minus forudsagt): ", fmt(fejl_foer, 1),
+                         "Gns. fejl (faktisk minus forudsagt): ", fmt(fejl_foer, 1),
                          " procentpoint før 2022 og ", fmt(fejl_efter, 1), " procentpoint fra 2022 (gråt felt)."),
        x = NULL,
-       caption = paste0("Anm.: PCA-indikatoren er en vægtet sum af ", sp_liste, " med vægtene fra graf 7. ",
+       caption = paste0("Anm.: PCA-indikatoren er en vægtet sum af de ", n_sp, " spørgsmål med vægtene fra graf 7. ",
                         "Linjen er estimeret på 2000K1–", kv_navn(sidste_kv), ".\n",
                         "Den hvide prik er en test: modellen estimeret til og med 2025K2 og brugt til at forudsige 2025K3.\n",
                         kilde)) +
@@ -457,6 +465,5 @@ niv <- niv[grepl("^P31S14D", niv$TRANSAKT) & grepl("^LKV_M ", niv$PRISENHED) &
 aarssum <- tapply(niv$value, format(as.Date(niv$TID), "%Y"), sum)
 vaekst_2016 <- (aarssum["2016"] / aarssum["2015"] - 1) * 100
 cat("Faktisk årlig realvækst i husholdningernes forbrugsudgift 2016:", fmt(vaekst_2016, 1), "pct.\n")
-
 
 
