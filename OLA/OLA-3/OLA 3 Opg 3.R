@@ -173,7 +173,7 @@ ggplot(data, aes(x = kategori, y = procent, fill = kategori)) +
     expand = c(0, 0)
   ) +
   labs( # Titel og aksetekster
-    title = "Over tid har der vores vækst i husholdningernes forbrugsudgifter oftere end der har været fald",
+    title = "Over tid har der oftere været vækst end fald i husholdningernes forbrugsudgifter",
     subtitle = "Data dækker perioden 1994 til 2026",
     x = NULL,
     y = "Procent",
