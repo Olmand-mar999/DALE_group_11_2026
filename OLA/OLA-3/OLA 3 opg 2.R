@@ -236,3 +236,241 @@ ny <- data.frame(indikator = as.numeric(as.matrix(F_total[nye_kv, names(vaegte)]
 
 forudsagt <- data.frame(Kvartal = nye_kv, Forudsagt = predict(model, newdata = ny, ncomp = 1))
 forudsagt
+
+# =====================================================================
+# 9. OPGAVE 2 – BEREGNINGER OG GRAFER
+# =====================================================================
+
+
+library(ggplot2)
+
+# ---- Farver, tema og hjælpefunktion (samme stil som opgave 1) ----
+groen_moerk <- "#1B5E20"
+groen_mid   <- "#558B2F"
+groen_lys   <- "#8BC34A"
+groen_bleg  <- "#C5E1A5"
+graa        <- "#8C8C8C"
+
+tema_opgave <- theme_minimal(base_size = 12) +
+  theme(plot.title            = element_text(face = "bold", size = 14),
+        plot.subtitle         = element_text(colour = "grey30", margin = margin(b = 10)),
+        plot.title.position   = "plot",
+        plot.caption          = element_text(hjust = 0, colour = "grey40", size = 9,
+                                             margin = margin(t = 10)),
+        plot.caption.position = "plot",
+        panel.grid.minor      = element_blank(),
+        panel.grid.major.x    = element_blank(),
+        axis.title            = element_text(colour = "grey30"),
+        plot.margin           = margin(12, 16, 12, 12))
+
+fmt <- function(x, d = 2) format(round(x, d), nsmall = d, decimal.mark = ",")
+
+# Loadings hentes direkte fra PCA-modellen
+loadings.pcr.fit <- pcr.fit$loadings
+
+# Spørgsmålene i PCA-regressionen hentes direkte fra modellen (virker med 5 eller 11 spørgsmål)
+pca_sp  <- rownames(loadings.pcr.fit)
+n_sp    <- length(pca_sp)
+sp_navn <- if (setequal(pca_sp, c("F2", "F3", "F4", "F5", "F9"))) "DST's fem spørgsmål" else paste0("de ", n_sp, " spørgsmål")
+sp_liste <- paste0(paste(head(pca_sp, -1), collapse = ", "), " og ", tail(pca_sp, 1))
+kilde   <- "Kilde: Danmarks Statistik, statistikbanken.dk (NKN1 og FORV1) samt egne beregninger"
+
+# ---------------------------------------------------------------------
+# 9. Graf 6: Forklaret variation pr. komponent
+# ---------------------------------------------------------------------
+ve_x <- as.numeric(explvar(pcr.fit))                                    # % af variationen i spørgsmålene
+r2_y <- as.numeric(drop(R2(pcr.fit, estimate = "train", intercept = FALSE)$val)) * 100  # kumulativ % af realvæksten
+
+g6 <- data.frame(komp = factor(seq_along(ve_x)), x = ve_x, y = r2_y)
+
+graf6 <- ggplot(g6, aes(x = komp)) +
+  geom_col(aes(y = x), fill = groen_bleg, width = 0.6) +
+  geom_text(aes(y = x, label = paste0(fmt(x, 0), " %")), vjust = -0.5, size = 3.5, colour = groen_mid) +
+  geom_line(aes(y = y, group = 1), colour = groen_moerk, linewidth = 1.1) +
+  geom_point(aes(y = y), colour = groen_moerk, size = 3) +
+  geom_text(aes(y = y, label = paste0(fmt(y, 0), " %"),
+                hjust = ifelse(komp == "1", -0.35, 0.5),      # 1. etiket til højre, så den ikke rammer linjen
+                vjust = ifelse(komp == "1", 0.5, -1)),
+            size = 3.5, colour = groen_moerk, fontface = "bold") +
+  scale_y_continuous(name = "Pct.", limits = c(0, ceiling(max(ve_x, r2_y) * 1.15 / 10) * 10),
+                     breaks = seq(0, 100, 10), expand = expansion(mult = c(0, 0))) +
+  labs(title = paste0("1. komponent samler ", fmt(ve_x[1], 0), " pct. af variationen i ", sp_navn,
+                      " og forklarer ", fmt(r2_y[1], 0), " pct. af realvæksten"),
+       subtitle = paste0("Søjler: andel af variationen i spørgsmålene pr. komponent.\n",
+                         "Linje: samlet andel af realvæksten, der forklares med 1, 2, … komponenter."),
+       x = "Komponent",
+       caption = paste0("Anm.: PCA-regression af den årlige realvækst i husholdningernes forbrugsudgift ",
+                        "på ", sp_liste, " (standardiserede).\n", kilde)) +
+  tema_opgave
+
+print(graf6)
+
+
+# ---------------------------------------------------------------------
+# 9. Graf 7: Vægte på 1. komponent
+# ---------------------------------------------------------------------
+load1 <- loadings.pcr.fit[, 1]
+if (sum(load1) < 0) load1 <- -load1        # komponentens retning er vilkårlig: vend, så de fleste er positive
+vaegte <- data.frame(sp = names(load1), loading = as.numeric(load1), vaegt = as.numeric(load1)^2)
+vaegte <- vaegte[order(vaegte$vaegt), ]
+vaegte$sp <- factor(vaegte$sp, levels = vaegte$sp)
+top3   <- rev(as.character(vaegte$sp))[1:3]
+vaegte$farve <- ifelse(vaegte$sp %in% top3, groen_moerk, groen_bleg)
+print(vaegte[order(-vaegte$vaegt), c("sp", "loading", "vaegt")])   # tabel til opgaven
+
+sp_tekst <- c(F2  = "F2 Familiens økonomi vs. for et år siden",
+              F3  = "F3 Familiens økonomi om et år",
+              F4  = "F4 Danmarks økonomi vs. for et år siden",
+              F5  = "F5 Danmarks økonomi om et år",
+              F6  = "F6 Priser vs. for et år siden (vendt)",
+              F7  = "F7 Priser om et år (vendt)",
+              F8  = "F8 Arbejdsløshed om et år (vendt)",
+              F9  = "F9 Fordelagtigt at købe forbrugsgoder nu",
+              F10 = "F10 Køb af forbrugsgoder næste 12 mdr.",
+              F12 = "F12 Regner med at kunne spare op",
+              F13 = "F13 Familiens økonomi lige nu")
+lab_fun <- function(x) ifelse(x %in% names(sp_tekst), sp_tekst[x], x)
+
+graf7 <- ggplot(vaegte, aes(x = vaegt, y = sp)) +
+  geom_col(fill = vaegte$farve, width = 0.65) +
+  geom_vline(xintercept = 1 / n_sp, colour = graa, linetype = "dashed", linewidth = 0.4) +
+  geom_text(aes(label = paste0(fmt(vaegt * 100, 0), " %", ifelse(loading < 0, " (negativ loading)", ""))),
+            hjust = -0.1, size = 3.4) +
+  scale_y_discrete(labels = lab_fun) +
+  scale_x_continuous(name = "Vægt (kvadreret loading på 1. komponent)",
+                     labels = function(v) paste0(fmt(v * 100, 0), " %"),
+                     expand = expansion(mult = c(0, 0.3))) +
+  labs(title = paste0(paste(top3, collapse = ", "), " har de højeste vægte i PCA-indikatoren"),
+       subtitle = paste0("Vægtene summerer til 100 pct. Mørkegrøn: de tre spørgsmål med højest vægt.\n",
+                         "Stiplet linje: vægten ved lige vægte (", fmt(100 / n_sp, 0), " pct.)."),
+       y = NULL,
+       caption = paste0("Anm.: Vægt = loading² på 1. komponent i PCA-regressionen. ",
+                        "F6, F7 og F8 har vendt fortegn.\n", kilde)) +
+  tema_opgave +
+  theme(panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_line(colour = "grey90"),
+        panel.background = element_rect(fill = NA, colour = NA),
+        plot.background  = element_rect(fill = NA, colour = NA),
+        legend.background = element_rect(fill = NA, colour = NA),
+        legend.box.background = element_rect(fill = NA, colour = NA))
+
+print(graf7)
+#ggsave(
+#  "graf7.png",
+#  plot = graf7,
+#  bg = "transparent",
+#  width = 12,
+#  height = 7,
+#  dpi = 300
+#)
+
+
+
+# ---------------------------------------------------------------------
+# 9. PCA-modellen: test af 2025K3 + forudsigelse af de nyeste kvartaler + Graf 8
+# ---------------------------------------------------------------------
+kv_navn <- function(d) {
+  d <- as.Date(d)
+  paste0(format(d, "%Y"), "K", (as.numeric(format(d, "%m")) - 1) %/% 3 + 1)
+}
+
+# Vægte = loading², men med loadingens fortegn. Ellers ville et spørgsmål med negativ
+# loading tælle med den forkerte vej i indikatoren.
+w <- (load1^2 * sign(load1))[pca_sp]
+
+# PCA-indikator = vægtet sum af spørgsmålene (alle kvartaler, også dem uden forbrugsdata)
+pca_ind <- data.frame(Kvartal    = as.Date(rownames(F_total)),
+                      indikator  = as.numeric(as.matrix(F_total[, pca_sp]) %*% w),
+                      realvaekst = Forbrug[rownames(F_total), "realvaekst"])
+
+# ---- Model A: ægte test af 2025K3 (OLA 2.3) ----
+# Estimeres kun på kvartalerne FØR 2025K3, så modellen ikke har set det faktiske tal
+q3_dato    <- as.Date("2025-07-01")
+train      <- pca_ind[pca_ind$Kvartal < q3_dato & !is.na(pca_ind$realvaekst), ]
+model_test <- lm(realvaekst ~ indikator, data = train)
+q3         <- pca_ind[pca_ind$Kvartal == q3_dato, ]
+q3$test    <- as.numeric(predict(model_test, newdata = q3))
+cat("TEST 2025K3 – forudsagt:", fmt(q3$test, 1), "pct.  faktisk:", fmt(q3$realvaekst, 1), "pct.\n")
+
+# ---- Model B: PCA-modellen på alle data til nyeste kvartal ----
+data_alle <- pca_ind[!is.na(pca_ind$realvaekst), ]
+model_pca <- lm(realvaekst ~ indikator, data = data_alle)
+summary(model_pca)
+
+pca_ind$forudsagt <- as.numeric(predict(model_pca, newdata = pca_ind))
+sidste_kv <- max(data_alle$Kvartal)                       # seneste kvartal med forbrugsdata
+nye       <- pca_ind[pca_ind$Kvartal > sidste_kv, ]       # kvartaler der forudsiges
+nye_pi    <- predict(model_pca, newdata = nye, interval = "prediction")
+print(data.frame(Kvartal = kv_navn(nye$Kvartal), PCA_indikator = round(nye$indikator, 1),
+                 Forudsagt = round(nye_pi[, "fit"], 1),
+                 Nedre_95 = round(nye_pi[, "lwr"], 1), Oevre_95 = round(nye_pi[, "upr"], 1)))
+
+# Gennemsnitlig fejl (faktisk minus forudsagt) før og efter 2022
+data_alle$fejl <- data_alle$realvaekst - as.numeric(predict(model_pca, newdata = data_alle))
+fejl_foer  <- mean(data_alle$fejl[data_alle$Kvartal <  as.Date("2022-01-01")])
+fejl_efter <- mean(data_alle$fejl[data_alle$Kvartal >= as.Date("2022-01-01")])
+cat("Gns. fejl før 2022:", fmt(fejl_foer, 1), " – fra 2022:", fmt(fejl_efter, 1), "procentpoint\n")
+
+titel8 <- if (fejl_efter > 1) {
+  "PCA-modellen undervurderer forbruget systematisk efter 2022"
+} else if (fejl_efter < -1) {
+  "PCA-modellen overvurderer forbruget systematisk efter 2022"
+} else {
+  "PCA-modellen følger forbruget også efter 2022"
+}
+
+# Data til grafen
+hist_df  <- pca_ind[pca_ind$Kvartal <= sidste_kv, ]
+frem_df  <- rbind(pca_ind[pca_ind$Kvartal == sidste_kv, ], nye)   # stiplet linje fra sidste kendte kvartal
+nye_lab  <- nye[nrow(nye), ]
+slut     <- max(pca_ind$Kvartal)
+
+graf8 <- ggplot(hist_df, aes(x = Kvartal)) +
+  annotate("rect", xmin = as.Date("2022-01-01"), xmax = slut + 60,
+           ymin = -Inf, ymax = Inf, fill = "grey95") +
+  geom_col(aes(y = realvaekst), fill = groen_bleg, width = 80, na.rm = TRUE) +
+  geom_hline(yintercept = 0, colour = "grey40", linewidth = 0.3) +
+  geom_line(aes(y = forudsagt), colour = groen_moerk, linewidth = 1.1) +
+  # Forudsigelse af de nyeste kvartaler (stiplet)
+  geom_line(data = frem_df, aes(y = forudsagt), colour = groen_moerk,
+            linewidth = 1.1, linetype = "dashed") +
+  geom_point(data = nye, aes(y = forudsagt), colour = groen_moerk, size = 3.5) +
+  # Etiket med alle forudsagte kvartaler, placeret over punkterne med hvid baggrund
+  annotate("label", x = nye_lab$Kvartal, y = nye_lab$forudsagt + 1.5,
+           label = paste(paste0(kv_navn(nye$Kvartal), ": ", fmt(nye$forudsagt, 1), " pct."), collapse = "\n"),
+           hjust = 1, vjust = 0, colour = groen_moerk, fontface = "bold", size = 3.4,
+           fill = "white", label.size = 0) +
+  # Testen af 2025K3 (model estimeret til og med 2025K2)
+  geom_point(data = q3, aes(y = test), shape = 21, fill = "white", colour = graa,
+             size = 3.5, stroke = 1.3) +
+  annotate("label", x = q3_dato, y = q3$test - 0.5,
+           label = paste0("Test 2025K3: ", fmt(q3$test, 1), " pct.\n(faktisk ", fmt(q3$realvaekst, 1), " pct.)"),
+           hjust = 0.5, vjust = 1, colour = "grey35", size = 3.2,
+           fill = "white", label.size = 0) +   # under punktet
+  scale_x_date(date_breaks = "2 years", date_labels = "%Y", expand = expansion(mult = c(0.01, 0.02))) +
+  scale_y_continuous(name = "Årlig realvækst, pct.") +
+  labs(title = titel8,
+       subtitle = paste0("Søjler: faktisk årlig realvækst. Linje: forudsagt med PCA-modellen, stiplet = ",
+                         paste(kv_navn(nye$Kvartal), collapse = " og "), ".\n",
+                         "Gns. fejl (faktisk minus forudsagt): ", fmt(fejl_foer, 1),
+                         " procentpoint før 2022 og ", fmt(fejl_efter, 1), " procentpoint fra 2022 (gråt felt)."),
+       x = NULL,
+       caption = paste0("Anm.: PCA-indikatoren er en vægtet sum af de ", n_sp, " spørgsmål med vægtene fra graf 7. ",
+                        "Linjen er estimeret på 2000K1–", kv_navn(sidste_kv), ".\n",
+                        "Den hvide prik er en test: modellen estimeret til og med 2025K2 og brugt til at forudsige 2025K3.\n",
+                        kilde)) +
+  tema_opgave +
+  theme(panel.background = element_rect(fill = NA, colour = NA),
+        plot.background  = element_rect(fill = NA, colour = NA),
+        legend.background = element_rect(fill = NA, colour = NA),
+        legend.box.background = element_rect(fill = NA, colour = NA))
+
+print(graf8)
+ggsave(
+  "graf8.png",
+  plot = graf8,
+  bg = "transparent",
+  width = 12,
+  height = 7,
+  dpi = 300
+)

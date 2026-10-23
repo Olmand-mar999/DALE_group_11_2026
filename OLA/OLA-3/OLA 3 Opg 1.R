@@ -281,7 +281,8 @@ tema_opgave <- theme_minimal(base_size = 12) +
         panel.grid.minor    = element_blank(),
         panel.grid.major.x  = element_blank(),
         axis.title          = element_text(colour = "grey30"),
-        plot.margin         = margin(12, 16, 12, 12))
+        plot.margin         = margin(12, 16, 12, 12),
+        plot.background = element_rect(fill = "transparent", color = NA))
 
 # Tal med dansk decimalkomma
 fmt <- function(x, d = 2) format(round(x, d), nsmall = d, decimal.mark = ",")
@@ -462,9 +463,22 @@ graf3 <- ggplot(g3, aes(x = Kvartal)) +
          "Kilde: Danmarks Statistik, statistikbanken.dk (NKN1 og FORV1) samt egne beregninger")) +
   tema_opgave +
   theme(axis.title.y.right = element_text(colour = groen_mid),
-        axis.text.y.right  = element_text(colour = groen_mid))
+        axis.text.y.right  = element_text(colour = groen_mid),
+        panel.background = element_rect(fill = NA, colour = NA),
+        plot.background  = element_rect(fill = NA, colour = NA),
+        legend.background = element_rect(fill = NA, colour = NA),
+        legend.box.background = element_rect(fill = NA, colour = NA)
+        )
 
 print(graf3)
+#ggsave(
+#  "graf3.png",
+#  plot = graf3,
+#  bg = "transparent",
+#  width = 12,
+#  height = 7,
+#  dpi = 300
+#)
 # ---------------------------------------------------------------------
 # 8.4 Graf 4: Oplevet prisudvikling (F6) vs. faktisk inflation
 # ---------------------------------------------------------------------

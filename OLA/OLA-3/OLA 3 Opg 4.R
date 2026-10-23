@@ -268,7 +268,7 @@ gennemsnitlig_rangering[gennemsnitlig_rangering$Indikator %in% kendte, ]
 plot_data <- faelles %>%
   select(Kvartal, realvaekst)
 
-ggplot(plot_data, aes(x = Kvartal, y = realvaekst)) +
+graf1 <-  ggplot(plot_data, aes(x = Kvartal, y = realvaekst)) +
   geom_col(
     fill = "#C5E1A5",
     width = 80
@@ -291,8 +291,22 @@ ggplot(plot_data, aes(x = Kvartal, y = realvaekst)) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     panel.grid.minor = element_blank(),
-    plot.caption = element_text(hjust = 0)
+    plot.caption = element_text(hjust = 0),
+    panel.background = element_rect(fill = NA, colour = NA),
+    plot.background  = element_rect(fill = NA, colour = NA),
+    legend.background = element_rect(fill = NA, colour = NA),
+    legend.box.background = element_rect(fill = NA, colour = NA)
   )
+
+print(graf1)
+#ggsave(
+#  "graf1.png",
+#  plot = graf1,
+#  bg = "transparent",
+#  width = 12,
+#  height = 7,
+#  dpi = 300
+#)
 
 
 # =====================================================================
@@ -314,7 +328,7 @@ faktor <- max(abs(plot_data$realvaekst), na.rm = TRUE) /
   max(abs(plot_data$Indikator_vaerdi), na.rm = TRUE)
 
 # Tegn plottet
-ggplot(plot_data, aes(x = Kvartal)) +
+graf2 <- ggplot(plot_data, aes(x = Kvartal)) +
   geom_col(
     aes(y = realvaekst),
     fill = "grey90",
@@ -342,7 +356,7 @@ ggplot(plot_data, aes(x = Kvartal)) +
     )
   ) +
   labs(
-    title = "Vores bedste indikator følger realvæksten bedst over hele perioden fra 2020-2026",
+    title = "Vores bedste indikator følger realvæksten bedst over hele perioden fra 2000-2026",
     subtitle = paste("Indikator med laveste gennemsnitlige rang:", bedste_indikator),
     x = "Kvartal",
     caption = "Kilde: Danmarks Statistik, NKN1 og FORV1"
@@ -351,6 +365,20 @@ ggplot(plot_data, aes(x = Kvartal)) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
     panel.grid.minor = element_blank(),
-    plot.caption = element_text(hjust = 0)
+    plot.caption = element_text(hjust = 0),
+    panel.background = element_rect(fill = NA, colour = NA),
+    plot.background  = element_rect(fill = NA, colour = NA),
+    legend.background = element_rect(fill = NA, colour = NA),
+    legend.box.background = element_rect(fill = NA, colour = NA)
+    )
+    
+print(graf2)
+ggsave(
+  "graf2.png",
+  plot = graf2,
+  bg = "transparent",
+  width = 12,
+  height = 7,
+  dpi = 300
   )
 
