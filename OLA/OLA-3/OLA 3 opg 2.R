@@ -301,9 +301,20 @@ graf6 <- ggplot(g6, aes(x = komp)) +
        x = "Komponent",
        caption = paste0("Anm.: PCA-regression af den årlige realvækst i husholdningernes forbrugsudgift ",
                         "på ", sp_liste, " (standardiserede).\n", kilde)) +
-  tema_opgave
+  tema_opgave + 
+  theme(plot.background  = element_rect(fill = NA, colour = NA),
+        legend.background = element_rect(fill = NA, colour = NA),
+        legend.box.background = element_rect(fill = NA, colour = NA))
 
 print(graf6)
+#ggsave(
+#  "graf6.png",
+#  plot = graf6,
+#  bg = "transparent",
+#  width = 12,
+#  height = 7,
+#  dpi = 300
+#)
 
 
 # ---------------------------------------------------------------------
@@ -466,11 +477,11 @@ graf8 <- ggplot(hist_df, aes(x = Kvartal)) +
         legend.box.background = element_rect(fill = NA, colour = NA))
 
 print(graf8)
-ggsave(
-  "graf8.png",
-  plot = graf8,
-  bg = "transparent",
-  width = 12,
-  height = 7,
-  dpi = 300
-)
+#ggsave(
+#  "graf8.png",
+#  plot = graf8,
+#  bg = "transparent",
+#  width = 12,
+#  height = 7,
+#  dpi = 300
+#)

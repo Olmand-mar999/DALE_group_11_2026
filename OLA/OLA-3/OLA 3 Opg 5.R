@@ -148,8 +148,20 @@ g22 <- ggplot(d22, aes(x = tid, y = fart, colour = station)) +   # data og farve
   theme_minimal() +                                   # ren baggrund
   theme(legend.position = "none",                     # ingen signaturforklaring
         strip.text = element_text(face = "bold"),     # fed panelnavn
-        plot.title = element_text(face = "bold", colour = "#1B5E20"))  # grøn titel
-print(g22)                                            # vis graf
+        plot.title = element_text(face = "bold", colour = "#1B5E20"),  # grøn titel
+        plot.background  = element_rect(fill = NA, colour = NA),
+        legend.background = element_rect(fill = NA, colour = NA),
+        legend.box.background = element_rect(fill = NA, colour = NA))
+
+print(g22)
+#ggsave(
+#  "g22.png",
+#  plot = g22,
+#  bg = "transparent",
+#  width = 12,
+#  height = 7,
+#  dpi = 300
+#)                                           # vis graf
 
 # ---------- 4B: Stormen oktober 2023 ----------
 d23 <- rbind(kegnaes23, anholt23)                     # Kegnæs mod Anholt (kontrast)
@@ -192,5 +204,19 @@ g23 <- ggplot(d23z, aes(x = tid, y = fart, colour = station)) +  # data og farve
   theme_minimal() +                                   # ren baggrund
   theme(legend.position = "none",                     # ingen signaturforklaring
         strip.text = element_text(face = "bold"),     # fed panelnavn
-        plot.title = element_text(face = "bold", colour = "#1B5E20"))  # grøn titel
-print(g23)                                            # vis graf
+        plot.title = element_text(face = "bold", colour = "#1B5E20"),
+        plot.background  = element_rect(fill = NA, colour = NA),
+        legend.background = element_rect(fill = NA, colour = NA),
+        legend.box.background = element_rect(fill = NA, colour = NA))  # grøn titel
+
+
+print(g23)
+#ggsave(
+#  "g23.png",
+#  plot = g23,
+#  bg = "transparent",
+#  width = 12,
+#  height = 7,
+#  dpi = 300
+#)      
+                                            # vis graf
