@@ -394,15 +394,6 @@ pca_ind <- data.frame(Kvartal    = as.Date(rownames(F_total)),
                       indikator  = as.numeric(as.matrix(F_total[, pca_sp]) %*% w),
                       realvaekst = Forbrug[rownames(F_total), "realvaekst"])
 
-# ---- Model A: ægte test af 2025K3 (OLA 2.3) ----
-# Estimeres kun på kvartalerne FØR 2025K3, så modellen ikke har set det faktiske tal
-q3_dato    <- as.Date("2025-07-01")
-train      <- pca_ind[pca_ind$Kvartal < q3_dato & !is.na(pca_ind$realvaekst), ]
-model_test <- lm(realvaekst ~ indikator, data = train)
-q3         <- pca_ind[pca_ind$Kvartal == q3_dato, ]
-q3$test    <- as.numeric(predict(model_test, newdata = q3))
-cat("TEST 2025K3 – forudsagt:", fmt(q3$test, 1), "pct.  faktisk:", fmt(q3$realvaekst, 1), "pct.\n")
-
 # ---- Model B: PCA-modellen på alle data til nyeste kvartal ----
 data_alle <- pca_ind[!is.na(pca_ind$realvaekst), ]
 model_pca <- lm(realvaekst ~ indikator, data = data_alle)
@@ -450,14 +441,8 @@ graf8 <- ggplot(hist_df, aes(x = Kvartal)) +
   annotate("label", x = nye_lab$Kvartal, y = nye_lab$forudsagt + 1.5,
            label = paste(paste0(kv_navn(nye$Kvartal), ": ", fmt(nye$forudsagt, 1), " pct."), collapse = "\n"),
            hjust = 1, vjust = 0, colour = groen_moerk, fontface = "bold", size = 3.4,
-           fill = "white", label.size = 0) +
+           fill = "white") +
   # Testen af 2025K3 (model estimeret til og med 2025K2)
-  geom_point(data = q3, aes(y = test), shape = 21, fill = "white", colour = graa,
-             size = 3.5, stroke = 1.3) +
-  annotate("label", x = q3_dato, y = q3$test - 0.5,
-           label = paste0("Test 2025K3: ", fmt(q3$test, 1), " pct.\n(faktisk ", fmt(q3$realvaekst, 1), " pct.)"),
-           hjust = 0.5, vjust = 1, colour = "grey35", size = 3.2,
-           fill = "white", label.size = 0) +   # under punktet
   scale_x_date(date_breaks = "2 years", date_labels = "%Y", expand = expansion(mult = c(0.01, 0.02))) +
   scale_y_continuous(name = "Årlig realvækst, pct.") +
   labs(title = titel8,
@@ -468,7 +453,6 @@ graf8 <- ggplot(hist_df, aes(x = Kvartal)) +
        x = NULL,
        caption = paste0("Anm.: PCA-indikatoren er en vægtet sum af de ", n_sp, " spørgsmål med vægtene fra graf 7. ",
                         "Linjen er estimeret på 2000K1–", kv_navn(sidste_kv), ".\n",
-                        "Den hvide prik er en test: modellen estimeret til og med 2025K2 og brugt til at forudsige 2025K3.\n",
                         kilde)) +
   tema_opgave +
   theme(panel.background = element_rect(fill = NA, colour = NA),
