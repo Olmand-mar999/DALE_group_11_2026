@@ -8,8 +8,7 @@ options(scipen = 999)
 
 # ---- Indstillinger ----
 tidszone         <- "Europe/Copenhagen"
-startdato        <- as.Date("1994-01-01")   # første kvartal der bruges (forbrug og forventninger)
-traeningsdato    <- as.Date("2015-01-01")   # Hvor meget af den historiske data der bruges til træning af modellen
+startdato        <- as.Date("2000-01-01")   # første kvartal der bruges (forbrug og forventninger)
 Q_pr_aar <- 4                       # bruges til årlig vækst
 
 # Spørgsmål der indgår i alle kombinationer
@@ -103,31 +102,14 @@ Faelles <- merge(Forbrugsdata, KV, by = "Kvartal")
 # Y: 1 hvis forbruget er større end samme kvartal året før, ellers 0 (faktor med faste niveauer)
 Faelles$binary <- factor(as.integer(Faelles$Forbrug_vaekst > 0), levels = c(0, 1))
 
-
-# Træningsdata gemmes
-# Den skal ikke have alt data til træning, da det ellers ikke kan bestemmes hvor modellen faktisk er
-traeningsdata <- Faelles[Faelles$Kvartal <= traeningsdato,]
-
-# Testdata er alt data der kommer efter træningen
-# Bruges til at bestemme hvor god modellen faktisk er efter den er blevet trænet
-testdata <- Faelles[Faelles$Kvartal > traeningsdato,]
-
 # Logistisk regression: sandsynlighed for vækst givet forbrugertillidsindikatoren ud fra træningsdata
-log_model <- glm(binary ~ `F1 Forbrugertillidsindikatoren`, family = binomial, data = traeningsdata)
+log_model <- glm(binary ~ `F1 Forbrugertillidsindikatoren`, family = binomial, data = Faelles)
 
 # Koefficienter og p-værdier
 summary(log_model)
 
-# Sandsynlighed for vækst i de kvartaler der er i testdata
-p <- predict(log_model, newdata = testdata, type = "response")
-
 # Bestem binære værdier for de predictede testdata værdier
-testdata$log_binary <- factor(ifelse(p > 0.5, 1, 0), levels = c(0, 1))
-
-# Vis kvartal, sandsynlighed og forudsigelse samlet, så man kan se hvilken række der er hvilket kvartal
-data.frame(Kvartal = testdata$Kvartal,
-           sandsynlighed = p,
-           forudsagt = ifelse(p > 0.5, "Vækst", "Fald"))
+Faelles$log_binary <- factor(ifelse(predict(log_model) > 0.5, 1, 0), levels = c(0, 1))
 
 # Forudsigelse for Kvartaler uden kendt forbrug, hvor vi kender indikatoren.
 Forudsigelses_data <- KV[!KV$Kvartal %in% Faelles$Kvartal, ]
@@ -145,7 +127,7 @@ data.frame(Kvartal = Forudsigelses_data$Kvartal,
 # =====================================================================
 
 # positive = "1" gør vækst til den positive klasse; Accuracy skal sammenlignes med No Information Rate
-confusionMatrix(data = testdata$log_binary, reference = testdata$binary, positive = "1")
+confusionMatrix(data = Faelles$log_binary, reference = Faelles$binary, positive = "1")
 
 # =====================================================================
 # 5. graf
