@@ -100,7 +100,7 @@ names(KV) <- sub("^value\\.", "", names(KV))
 Faelles <- merge(Forbrugsdata, KV, by = "Kvartal")
 
 # Y: 1 hvis forbruget er større end samme kvartal året før, ellers 0 (faktor med faste niveauer)
-Faelles$binary <- factor(as.integer(Faelles$Forbrug_vaekst > 0), levels = c(0, 1))
+Faelles$binary <- factor(Faelles$Forbrug_vaekst > 0, levels = c(0, 1))
 
 # Logistisk regression: sandsynlighed for vækst givet forbrugertillidsindikatoren ud fra træningsdata
 log_model <- glm(binary ~ `F1 Forbrugertillidsindikatoren`, family = binomial, data = Faelles)

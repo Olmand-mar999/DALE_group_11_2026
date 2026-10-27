@@ -5,6 +5,19 @@ library(httr)
 library(jsonlite)
 library(ggplot2)
 
+# Få data fra alle stationer
+stationer <- "https://opendataapi.dmi.dk/v2/metObs/collections/station/items?"
+station_svar <- GET(stationer)                                            # Kald på API
+station_tekst <- content(station_svar, as = "text", encoding = "UTF-8")   # Lav til tekst format
+alle_stationer <- fromJSON(station_tekst)$features$properties             # Formater til JSON
+
+# Find alle de parametre der kan anvendes for en given station
+# Århus hedder "Århus Syd", anholt hedder "Anholt Havn" og kegnæs hedder "Kegnæs Fyr"
+
+row <- which(alle_stationer$name=="Århus Syd") # Giver hvilken række vores stations navn er på
+unlist(alle_stationer$parameterId[row])        # Giver alle parametre der måles på den station
+alle_stationer$stationId[row]  
+
 # Parameters
 base <- "https://opendataapi.dmi.dk/v2/metObs/collections/observation/items?"
 param_fart <- "wind_speed"      # Middelvind over 10 minutter (m/s)
