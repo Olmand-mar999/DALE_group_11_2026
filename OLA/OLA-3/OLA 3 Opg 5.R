@@ -155,7 +155,7 @@ g22 <- ggplot(d22, aes(x = tid, y = fart, colour = station)) +   # data og farve
   coord_cartesian(ylim = c(0, max(d22$fart) * 1.3)) + # mere luft øverst til pilerækken
   labs(title = paste0("Vinden var kraftigst ved ", top22$station, " og kom fra ", ord22),  # konkluderende titel
        subtitle = "Pilene viser, hvorhen vinden blæser (pil mod venstre = vind fra øst)",  # læsevejledning
-       x = "Tidspunkt (dansk tid)",                   # x-akse
+       x = "Tidspunkt",                   # x-akse
        y = "Middelvind, 10 minutter (m/s)",           # y-akse
        caption = "Kilde: DMI Open Data, metObs (wind_speed og wind_dir)") +  # kilde nederst til højre
   theme_minimal() +                                   # ren baggrund
@@ -211,7 +211,7 @@ g23 <- ggplot(d23z, aes(x = tid, y = fart, colour = station)) +  # data og farve
                       " m/s, mens Anholt højst nåede ",
                       format(round(maks_anholt, 1), decimal.mark = ",")),  # konkluderende titel
        subtitle = "Stiplet linje = stormstyrke (24,5 m/s). Pilene viser, hvorhen vinden blæser",  # læsevejledning
-       x = "Tidspunkt (dansk tid)",                   # x-akse
+       x = "Tidspunkt",                   # x-akse
        y = "Middelvind, 10 minutter (m/s)",           # y-akse
        caption = "Kilde: DMI Open Data, metObs (wind_speed og wind_dir)") +  # kilde nederst til højre
   theme_minimal() +                                   # ren baggrund
