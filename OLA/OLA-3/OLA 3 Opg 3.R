@@ -37,14 +37,24 @@ kendte <- c(MCCI       = "F2+F3+F9+F10",           # Artiklens mikrospørgsmål
 # 1. FORBRUGSDATA
 # =====================================================================
 
-# ---- Hentning af forbrugsdata ----
-Forbrugsdata <- dst_get_data("NKN1", query = list(TRANSAKT = "*", PRISENHED = "*", SÆSON = "*", Tid = "*"))
+# Hent metadata
+meta_nkn1 <- dst_meta("NKN1")
+meta_nkn1$variables
+meta_nkn1$values$TRANSAKT
+meta_nkn1$values$PRISENHED
+meta_nkn1$values$SÆSON
+meta_nkn1$values$Tid
 
-##### Måske skal P31S14D eller P31S1MD bruges #####
-# Husholdningernes forbrugsudgifter (P31S14D), kædede værdier i mia. kr. (LKV_M), sæsonkorrigeret (Y)
-Forbrugsdata <- Forbrugsdata[grepl("^P31S14D", Forbrugsdata$TRANSAKT) &
-                               grepl("^LKV_M ", Forbrugsdata$PRISENHED) &
-                               grepl("^Y ", Forbrugsdata$SÆSON), ]
+# Lav query
+query_nkn1 <- list(
+  TRANSAKT = "P.31 Husholdningernes forbrugsudgifter",
+  PRISENHED = "2020-priser, kædede værdier, (mia. kr.)",
+  SÆSON = "Sæsonkorrigeret",
+  Tid = "*"
+)
+
+# ---- Hentning af forbrugsdata ----
+Forbrugsdata <- dst_get_data("NKN1", query = query_nkn1)
 
 # ---- Årlig realvækst pr. kvartal ----
 # Forbruget som almindelig vektor og antal kvartaler
@@ -66,8 +76,20 @@ Forbrugsdata <- Forbrugsdata[Forbrugsdata$Kvartal >= startdato, ]
 # 2. FORBRUGERTILLIDSUNDERSØGELSEN (FORVENTNINGER)
 # =====================================================================
 
+# Hent metadata
+meta_forv <- dst_meta("FORV1")
+meta_forv$variables
+meta_forv$values$INDIKATOR
+meta_forv$values$Tid
+
+# Lav query
+query_forv <- list(
+  INDIKATOR = "*",
+  Tid = "*"
+)
+
 # ---- Hentning ----
-Forventninger <- dst_get_data("FORV1", query = list(INDIKATOR = "*", Tid = "*"))
+Forventninger <- dst_get_data("FORV1", query = query_forv)
 
 # ---- Tid og afgrænsning ----
 # Tidskolonne sættes til datoformat
