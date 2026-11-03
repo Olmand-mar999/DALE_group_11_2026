@@ -21,7 +21,6 @@ toturl=paste0(baseurl,endpoint)
 # get my token
 token=getToken()
 
-
 # lav dette til en function i util - getRawFromUrl(url)
 rawres <- getRawFromUrl(toturl, token)
 # Find fly for en given bbox
