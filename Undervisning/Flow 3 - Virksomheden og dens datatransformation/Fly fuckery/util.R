@@ -30,6 +30,7 @@ getToken <- function() {
 
 
 # 401 betyder error
+# Laver basic url uden argumenter
 getRawFromUrl <- function(url, token){
   rawres <- GET(url, add_headers(Authorization = paste("Bearer", token, sep = " ")))
   status <- rawres$status_code
@@ -38,6 +39,7 @@ getRawFromUrl <- function(url, token){
   return(rawres)
 }
 
+# Laver url med bbox
 getRawFrombbox <- function(baseurl, token, lamin, lomin, lamax, lomax){
   url <- paste0(baseurl, "?", "lamin=", lamin, "&lomin=",lomin, "&lamax=", lamax, "&lomax=", lomax)
   rawres <- GET(url, add_headers(Authorization = paste("Bearer", token, sep = " ")))
@@ -46,3 +48,51 @@ getRawFrombbox <- function(baseurl, token, lamin, lomin, lamax, lomax){
     token <- getToken() }
   return(rawres)
 }
+
+# Sætter navne på dataframes
+SetColnames <- function(dataframe){
+  page=read_html("https://openskynetwork.github.io/opensky-api/rest.html")
+  tabs=page |> html_elements("table") |> html_table()
+  vars=tabs[[5]]
+  colnames(vars)
+  
+  #lav dette til en vector der kan bruges i colnames
+  names=unlist(vars$Property)
+  names=names[1:(length(names)-1)]
+  
+  colnames(dataframe) <- names
+  return(dataframe)
+}
+
+
+# funktion til plots
+Plot_lat_lng <- function(flydata){
+  plot(flydata[,"lat"], flydata[, "lng"], 
+       type = "p", 
+       main = "latitude and longtitude", 
+       xlab = "latitude", 
+       ylab = "longtitude")
+}
+
+Plot_time_crs <- function(flydata){
+  plot(flydata[,"time"], flydata[, "crs"], 
+       type = "p", 
+       main = "crs and time", 
+       xlab = "time", 
+       ylab = "crs")
+}
+
+Plot_time_alt <- function(flydata){
+  plot(flydata[,"time"], flydata[, "alt"], 
+       type = "p", 
+       main = "altitude and time", 
+       xlab = "time", 
+       ylab = "altitude")
+}
+
+MapPlot <- function(flydata){
+  leaflet(flydata) %>%
+    addTiles() %>%
+    addPolylines(lat = ~lat, lng = ~lng)
+}
+

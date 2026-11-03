@@ -1,43 +1,94 @@
 library(jsonlite)
 library(httr)
 library(stringr)
+library(leaflet)
 source("util.R")
 
 baseurl <- "https://opensky-network.org/api"
-endpoints <- "/states/all"
-query <- paste0(baseurl,endpoints)
 
+# begge endpoints
+endpointS <- "/states/all"
+endpointT <- "/tracks/all"
 
-#### POINT REYES ####
-lamin=34.841183
-lamax=38.228414
-lomin=-123.143884
-lomax=-120.573969
+# begge query's uden parametre
+queryS <- paste0(baseurl,endpointS)
+queryT <- paste0(baseurl,endpointT)
 
-fullurl=paste0("https://opensky-network.org/api/states/all?lamin=",lamin,"&lomin=",lomin,"&lamax=",lamax,"&lomax=",lomax)
-
-# lav en tæller som tæller op til en grænse
-freq=4
-counter=0
-limit=5
-prflightlist = list()
+# Token
 token=getToken()
-while (counter <= limit) {
-  res <- httr::GET(fullurl,add_headers(Authorization = paste("Bearer", token)))
-  if (res$status_code == 401) {
-    token=getToken()
-  } else {
-    rescontent <- httr::content(res, as="text")
-    resretval <- jsonlite::fromJSON(rescontent)
-    statedfpr <- as.data.frame(resretval$states)
-    
-    # append dataframe to list
-    prflightlist <- append(prflightlist,list(statedfpr))
-    # sleep for x seconds
-    Sys.sleep(freq)
-    counter = counter + 1
-  }
-}
-filename="my_flights.rds"
-saveRDS(prflightlist,filename)
+
+
+#### NORDSØEN ####
+lamin=52.055129
+lamax=56.196869
+lomin=-6.065140
+lomax=4.305954
+
+url_states <- getRawFrombbox(queryS, token, lamin, lomin, lamax, lomax)
+
+current=content(url_states, as="text")
+currentJS=fromJSON(current)
+currentDF=currentJS$states
+currentDF=as.data.frame(currentDF)
+
+# kalder funktionen SetColnames der sætter kolonnenavnene
+currentDF <- SetColnames(currentDF)
+
+# Find hvilke lande der har fly i luften
+tabel_data <- as.data.frame(table(currentDF$origin_country))
+
+# find all icaos and put in vector
+icaov=currentDF$icao24
+
+# find all tracks for each normal icao
+# start with one test icao
+ictest <- icaov[[8]]
+url_tracks <- paste0(queryT,"?icao24=",ictest, "&time=0")
+res <- httr::GET(url_tracks,add_headers(Authorization = paste("Bearer", token)))
+res$status_code
+resretval <- fromJSON(content(res, as="text"))
+statedf <- as.data.frame(resretval)
+
+
+# gemmer data i en rds fil i mappen training_data
+training_files <- list.files(path = "./training_data", pattern = "*rds", full.names=T)
+training_lists <- lapply(training_files, readRDS)
+
+# hent flydata eksempel
+flight_example <- readRDS("circMT.rds")
+flight_example
+
+# plots
+Plot_lat_lng(flight_example)
+Plot_time_crs(flight_example)
+Plot_time_alt(flight_example)
+MapPlot(flight_example)
+
+
+dlatv=diff(flight_example$lat)
+dlnv=diff(flight_example$lng)
+dlatv=c(0,dlatv)
+dlnv=c(0,dlnv)
+flight_example$dlat=dlatv
+flight_example$dlng=dlnv
+
+ggplot(flight_example,aes(x=time,y=lat))+geom_line()+
+  theme(axis.text.x = element_text(angle = 90))+
+  scale_x_continuous(breaks = scales::pretty_breaks(n=35))
+
+
+# apply circmetrics
+# lm
+cmodel=lm(lat ~ lng+crs+alt, data=flight_example)
+nmodel=lm(lat ~ lng+crs+alt, data=flight_example)
+summary(cmodel)
+summary(nmodel)
+# sd
+csd=sd(flight_example$crs)
+nsd=sd(flight_example$crs)
+
+# myOwnDetectionAlg
+# use diff to track change of fortegn
+
+
 # run R script from terminal

@@ -21,10 +21,16 @@ toturl=paste0(baseurl,endpoint)
 # get my token
 token=getToken()
 
+# bbox argumenter
+lamin <- "12.260742"
+lomin <- "43.522756"
+lamax <- "37.792969"
+lomax <- "52.376648"
+
 # lav dette til en function i util - getRawFromUrl(url)
 rawres <- getRawFromUrl(toturl, token)
 # Find fly for en given bbox
-rawres <- getRawFrombbox(toturl, token, "12.260742", "43.522756", "37.792969", "52.376648")
+rawres <- getRawFrombbox(toturl, token, lamin, lomin, lamax, lomax)
 
 # tjek statuskode - 200 er godt - 401 betyder expired
 rawres$status_code 
