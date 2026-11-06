@@ -1,8 +1,8 @@
 library(httr)
 library(jsonlite)
 
-clientID="ellen_thygesen-api-client"
-clientSecret="aNyow6x8okxVIrOFPGSCDPaN0INyP8me"
+clientID="emma.hartz.hald@gmail.com-api-client"
+clientSecret="WbBlWwgijyHqRNOJml3P2hyUo1asUUGC"
 
 
 # Request an access token
