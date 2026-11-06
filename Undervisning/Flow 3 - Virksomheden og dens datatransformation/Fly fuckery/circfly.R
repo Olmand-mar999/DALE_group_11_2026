@@ -58,7 +58,7 @@ icaov=in_air$icao24
 # Udkommenteret så vi ikke løber tør for tokens
 # find all tracks for each normal icao
 # start with one test icao
-#ictest <- icaov[[5]]
+#ictest <- icaov[[30]]
 #url_tracks <- paste0(queryT,"?icao24=",ictest, "&time=0")
 #res <- GET(url_tracks,add_headers(Authorization = paste("Bearer", token)))
 #res$status_code
@@ -85,10 +85,13 @@ MapPlot(circ_fly)
 #for (i in 1:length(icaov)){
 #  url_tracks <- paste0(queryT,"?icao24=",icaov[i], "&time=0")
 #  res <- GET(url_tracks,add_headers(Authorization = paste("Bearer", token)))
-#  resretval <- fromJSON(content(res, as="text", encoding = "UTF-8"))
-#  fly <- as.data.frame(resretval)
-#  colnames(fly) <- colnames(circ_fly)
-#  fly_liste <- c(fly_liste, list(fly))
+#  if (res$status_code == 200){
+#     resretval <- fromJSON(content(res, as="text", encoding = "UTF-8"))
+#     fly <- as.data.frame(resretval)
+#     colnames(fly) <- colnames(circ_fly)
+#     fly_liste <- c(fly_liste, list(fly))
+#  }
+  #Sys.sleep(0.2) Tilføjede linje for at se om det hjalp. It did not
 #}
 #saveRDS(fly_liste, "fly_liste.rds")
 
