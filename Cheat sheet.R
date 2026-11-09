@@ -250,14 +250,50 @@ gsub("[0-9]+","", data)
 
 # Join and merge dataframes-----------------------------------------------------
 
+library(dplyr)
+biler <- mtcars
+
+biler1 <- biler[, c("mpg", "cyl", "disp", "hp")]
+biler2 <- biler[, c("hp", "drat", "wt", "qsec")][1:20,]
+
+# som det kan ses skal det de merges ud fra være en liste af unikke værdier.
+# ellers går det galt
+biler3 <- merge(biler1, biler2, by = "hp")
+
+biler1$tal <- 1:nrow(biler1)
+biler2$tal <- 1:nrow(biler2)
+biler4 <- merge(biler1, biler2, by = "tal")
+
+# rækker skal være lige lange for left_join
+biler1 <- biler[, c("mpg", "cyl", "disp", "hp")]
+biler2 <- biler[, c("hp", "drat", "wt", "qsec")]
+biler1$tal <- 1:nrow(biler1)
+biler2$tal <- 1:nrow(biler2)
+
+biler4 <- left_join(biler1, biler2, by = "tal")
 
 
 
 # lapply, sapply----------------------------------------------------------------
 
+library(dplyr)
+biler <- mtcars
+
+# returnerer gennemsnittet af alle kolonner
+lapply(biler, FUN = mean)
+lapply(biler, mean)
+
+lapply(biler, FUN = min)
+lapply(biler, FUN = max)
+lapply(biler[,c("mpg","cyl")], FUN = mean)
+
 
 
 # API's-------------------------------------------------------------------------
+
+
+
+# reshape og pivot_wider
 
 
 
@@ -272,3 +308,5 @@ getwd()
 # json og httr og content-------------------------------------------------------
 
 # skal kunne forklare hvad json pakken gør og hvad httr pakken gør
+
+
