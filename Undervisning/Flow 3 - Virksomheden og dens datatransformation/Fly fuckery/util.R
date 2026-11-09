@@ -90,9 +90,20 @@ Plot_time_alt <- function(flydata){
        ylab = "altitude")
 }
 
+# Laver et map plot af vores fly's tracks
 MapPlot <- function(flydata){
   leaflet(flydata) %>%
     addTiles() %>%
     addPolylines(lat = ~lat, lng = ~lng)
 }
 
+# Beregner den samlede kursændring
+# hvis et fly har lavet et loop har det roteret over 360 grader
+calculate_turn <- function(crs) {
+  # Giver forskellen mellem hver observation i forhold til den forrige
+  diff_crs <- diff(crs)
+  # Håndter overgangen mellem 360 og 0 grader
+  diff_crs <- ((diff_crs + 180) %% 360) - 180
+  # Samlet kursændring
+  sum(abs(diff_crs))
+}

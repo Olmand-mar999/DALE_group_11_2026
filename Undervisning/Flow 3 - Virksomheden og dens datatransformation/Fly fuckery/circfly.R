@@ -158,20 +158,14 @@ fly_circle <- list()
 icao_off <- data.frame(icao = NULL)
 for (i in 1:length(fly_all)){
   fly <- fly_all[[i]]
-  if (any(fly$crs >= 0 & fly$crs < 45) &&
-      any(fly$crs >= 45 & fly$crs < 90) &&
-      any(fly$crs >= 90 & fly$crs < 135) &&
-      any(fly$crs >= 135 & fly$crs < 180) &&
-      any(fly$crs >= 180 & fly$crs < 225) &&
-      any(fly$crs >= 225 & fly$crs < 270) &&
-      any(fly$crs >= 270 & fly$crs < 315) &&
-      any(fly$crs >= 315 & fly$crs <= 360)) {
+  kurs <- calculate_turn(fly$crs)
+  if (abs(kurs) > 360) {
     fly_circle <- c(fly_circle, list(fly))
     icao_off <- rbind(icao_off, data.frame(icao = fly$icao24[1]))
   }
 }
 
-MapPlot(fly_circle[[2]])
+MapPlot(fly_circle[[1]])
 
 # Lav dataframe der indeholder alle icaonavne, deres standardafvigelse,
 # og om hvorvidt de cirkulerer
@@ -185,6 +179,11 @@ for (i in 1:length(fly_all)){
   dataframe <- rbind(dataframe, data)
 }
 
+calculate_turn(circ_fly$crs)
+calculate_turn(flight_example$crs)
+calculate_turn(fly_circle[[14]]$crs)
+calculate_turn(training_lists[[1]]$crs)
+MapPlot(fly_circle[[14]])
 
 # =====================================================================
 # Wulf kode - skal det bruges???
@@ -192,13 +191,17 @@ for (i in 1:length(fly_all)){
 
 # Alt nedenstående er noget wulf oprindeligt har skrevet
 
+tal <- 1
+
 # Giver forskellen mellem hver observation i forhold til den forrige
-#dlatv=diff(flight_example$lat)
-#dlnv=diff(flight_example$lng)
-#dlatv=c(0,dlatv)
-#dlnv=c(0,dlnv)
-#flight_example$dlat=dlatv
-#flight_example$dlng=dlnv
+dlatv=diff(fly_circle[[tal]]$lat)
+dlnv=diff(fly_circle[[tal]]$lng)
+dlatv=c(0,dlatv)
+dlnv=c(0,dlnv)
+fly_circle[[tal]]$dlat=dlatv
+fly_circle[[tal]]$dlng=dlnv
+max(fly_circle[[tal]]$dlng)
+max(fly_circle[[tal]]$dlat)
 
 #ggplot(flight_example,aes(x=time,y=lat))+geom_line()+
 #  theme(axis.text.x = element_text(angle = 90))+
