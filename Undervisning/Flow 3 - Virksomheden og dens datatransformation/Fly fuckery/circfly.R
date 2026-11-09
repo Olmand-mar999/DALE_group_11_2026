@@ -1,10 +1,14 @@
+# =====================================================================
+# 0. OPSÆTNING
+# =====================================================================
+
 library(jsonlite)
 library(httr)
 library(stringr)
 library(leaflet)
 source("util.R")
 
-# hent flydata eksempel
+# hent flydata eksempel og gemte rds fly
 circ_fly <- readRDS("circMT.rds")
 circ_fly$sd <- sd(circ_fly$crs)
 currentDF <- readRDS("currentDF2.rds")
@@ -14,6 +18,7 @@ fly_data <- readRDS("fly_liste.rds")
 # gemmer data i en rds fil i mappen training_data
 training_files <- list.files(path = "./training_data", pattern = "*rds", full.names=T)
 training <- lapply(training_files, readRDS)
+
 # tilføj standardafvigelse til training files
 training_lists <- list()
 for (i in 1:length(training)){
@@ -21,6 +26,10 @@ for (i in 1:length(training)){
   data$sd <- sd(data$crs)
   training_lists <- c(training_lists, list(data))
 }
+
+# =====================================================================
+# 1. URL information
+# =====================================================================
 
 baseurl <- "https://opensky-network.org/api"
 
@@ -35,12 +44,15 @@ queryT <- paste0(baseurl,endpointT)
 # Token
 token=getToken()
 
-
 #### NORDSØEN ####
 lamin=52.055129
 lamax=56.196869
 lomin=-6.065140
 lomax=4.305954
+
+# =====================================================================
+# 2. Hent alle states - fly tilgængelige lige nu
+# =====================================================================
 
 # Udkommenteret så vi ikke løber tør for tokens
 #url_states <- getRawFrombbox(queryS, token, lamin, lomin, lamax, lomax)
@@ -55,13 +67,16 @@ lomax=4.305954
 # Find hvilke lande der har fly i luften
 tabel_data <- as.data.frame(table(currentDF$origin_country))
 
-
 # Vi kan ikke finde tracks for fly der ikke er i luften
 # Det vil sige alle fly hvor on_ground = TRUE skal fjernes
 in_air <- currentDF[currentDF$on_ground == FALSE,]
 
 # find all icaos and put in vector
 icaov=in_air$icao24
+
+# =====================================================================
+# 3. Hent tracks for enkelt testfly
+# =====================================================================
 
 # Udkommenteret så vi ikke løber tør for tokens
 # find all tracks for each normal icao
@@ -87,6 +102,10 @@ Plot_time_crs(circ_fly)
 Plot_time_alt(circ_fly)
 MapPlot(circ_fly)
 
+# =====================================================================
+# 4. Hent tracks for alle fly
+# =====================================================================
+
 # Udkommenteret så vi ikke løber tør for tokens
 # gem tracks for alle fly
 #fly_liste <- list()
@@ -101,6 +120,10 @@ MapPlot(circ_fly)
 #  }
 #}
 #saveRDS(fly_liste, "fly_liste2.rds")
+
+# =====================================================================
+# 5. Find alle cirkulerende fly
+# =====================================================================
 
 # Sætter en højdegrænse for at fjerne helikoptere og privatfly
 fly_high <- list()
@@ -130,6 +153,7 @@ MapPlot(training_lists[[2]])
 fly_all <- c(fly_high, training_lists, list(circ_fly))
 
 # Find ud af om flyende cirkulerer. Gem icao navnene på dem der gør
+# Skal det være fly_all eller fly_inAir ?
 fly_circle <- list()
 icao_off <- data.frame(icao = NULL)
 for (i in 1:length(fly_all)){
@@ -160,6 +184,11 @@ for (i in 1:length(fly_all)){
   sdcourse <- data.frame
   dataframe <- rbind(dataframe, data)
 }
+
+
+# =====================================================================
+# Wulf kode - skal det bruges???
+# =====================================================================
 
 # Alt nedenstående er noget wulf oprindeligt har skrevet
 
