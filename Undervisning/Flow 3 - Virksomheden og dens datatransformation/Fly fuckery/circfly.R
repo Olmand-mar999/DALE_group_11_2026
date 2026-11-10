@@ -232,12 +232,12 @@ email <- compose_email(
 #  theme(axis.text.x = element_text(angle = 90))+
 #  scale_x_continuous(breaks = scales::pretty_breaks(n=35))
 
-tal <- 15
-min(fly_high[[tal]]$crs)
-max(fly_high[[tal]]$crs)
+#tal <- 15
+#min(fly_high[[tal]]$crs)
+#max(fly_high[[tal]]$crs)
 
-MapPlot(training_lists[[1]])
-MapPlot(fly_circle[[1]])
+#MapPlot(training_lists[[1]])
+#MapPlot(fly_circle[[1]])
 # apply circmetrics
 # lm
 #cmodel=lm(lat ~ lng+crs+alt, data=flight_example)
