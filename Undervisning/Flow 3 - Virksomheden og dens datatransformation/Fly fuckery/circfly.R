@@ -141,22 +141,25 @@ fly_all <- c(fly_high, training_lists, list(circ_fly))
 # Find ud af om flyende cirkulerer. Gem icao navnene på dem der gør
 fly_circle <- list()
 icao_off <- data.frame(icao = NULL)
-for (i in 1:length(fly_all)){
+breaks <- seq(0, 360, by = 15) # bruges til at tjekke om et fly cirkulerer
+
+for (i in 1:length(fly_all)) {
   fly <- fly_all[[i]]
-  if (any(fly$crs >= 0 & fly$crs < 45) &&
-      any(fly$crs >= 45 & fly$crs < 90) &&
-      any(fly$crs >= 90 & fly$crs < 135) &&
-      any(fly$crs >= 135 & fly$crs < 180) &&
-      any(fly$crs >= 180 & fly$crs < 225) &&
-      any(fly$crs >= 225 & fly$crs < 270) &&
-      any(fly$crs >= 270 & fly$crs < 315) &&
-      any(fly$crs >= 315 & fly$crs <= 360)) {
+  # Tæl antal punkter i hvert 10-graders interval
+  interval_check <- table(cut(
+    fly$crs,
+    breaks = breaks,
+    right = FALSE # inkluderer 0 i første interval
+    # Så første interval kører fra 0-15, inkluderer 0 men ikke 15
+  ))
+  if (all(interval_check > 0)) {
     fly_circle <- c(fly_circle, list(fly))
     icao_off <- rbind(icao_off, data.frame(icao = fly$icao24[1]))
   }
 }
 
 MapPlot(fly_circle[[1]])
+fly_circle[[1]]
 
 # Lav dataframe der indeholder alle icaonavne, deres standardafvigelse,
 # og om hvorvidt de cirkulerer
@@ -229,7 +232,12 @@ email <- compose_email(
 #  theme(axis.text.x = element_text(angle = 90))+
 #  scale_x_continuous(breaks = scales::pretty_breaks(n=35))
 
+tal <- 15
+min(fly_high[[tal]]$crs)
+max(fly_high[[tal]]$crs)
 
+MapPlot(training_lists[[1]])
+MapPlot(fly_circle[[1]])
 # apply circmetrics
 # lm
 #cmodel=lm(lat ~ lng+crs+alt, data=flight_example)
