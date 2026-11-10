@@ -135,25 +135,10 @@ for (i in 1:length(fly_data)){
   }
 }
 
-MapPlot(fly_high[[4]])
-
-
-# Fjern landinger og letninger fra fly, da de godt kan cirkle lidt der
-fly_inAir <- list()
-for(i in 1:length(fly_high)){
-  fly <- fly_high[[i]]
-  fly <- fly[fly$alt > 2500,]
-  fly_inAir <- c(fly_inAir, list(fly))
-}
-
-MapPlot(fly_inAir[[4]])
-MapPlot(training_lists[[2]])
-
 # tilføj wulfs data til det skal testes på om det cirkulerer
 fly_all <- c(fly_high, training_lists, list(circ_fly))
 
 # Find ud af om flyende cirkulerer. Gem icao navnene på dem der gør
-# Skal det være fly_all eller fly_inAir ?
 fly_circle <- list()
 icao_off <- data.frame(icao = NULL)
 for (i in 1:length(fly_all)){
@@ -171,7 +156,7 @@ for (i in 1:length(fly_all)){
   }
 }
 
-MapPlot(fly_circle[[2]])
+MapPlot(fly_circle[[1]])
 
 # Lav dataframe der indeholder alle icaonavne, deres standardafvigelse,
 # og om hvorvidt de cirkulerer
@@ -230,14 +215,15 @@ email <- compose_email(
 #MapPlot(fly_circle[[tal]])
 
 # Giver forskellen mellem hver observation i forhold til den forrige
+#rows <- nrow(fly_circle[[tal]])
 #dlatv=diff(fly_circle[[tal]]$lat)
 #dlnv=diff(fly_circle[[tal]]$lng)
 #dlatv=c(0,dlatv)
 #dlnv=c(0,dlnv)
 #fly_circle[[tal]]$dlat=dlatv
 #fly_circle[[tal]]$dlng=dlnv
-#max(fly_circle[[tal]]$dlng)
-#max(fly_circle[[tal]]$dlat)
+#min(abs(fly_circle[[tal]]$dlng[5:rows]))
+#min(abs(fly_circle[[tal]]$dlat[5:rows]))
 
 #ggplot(flight_example,aes(x=time,y=lat))+geom_line()+
 #  theme(axis.text.x = element_text(angle = 90))+
