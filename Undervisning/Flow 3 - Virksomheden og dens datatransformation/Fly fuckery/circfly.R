@@ -171,9 +171,7 @@ for (i in 1:length(fly_all)){
   }
 }
 
-MapPlot(fly_circle[[1]])
-
-fly_circle[[1]]
+MapPlot(fly_circle[[2]])
 
 # Lav dataframe der indeholder alle icaonavne, deres standardafvigelse,
 # og om hvorvidt de cirkulerer
@@ -187,6 +185,39 @@ for (i in 1:length(fly_all)){
   dataframe <- rbind(dataframe, data)
 }
 
+sus_fly <- dataframe[dataframe$isOff == 1,]
+saveRDS(sus_fly, "sus_fly.rds")
+readRDS("sus_fly.rds")
+
+# =====================================================================
+# 6. Send e-mail
+# =====================================================================
+
+library(blastula)
+
+email <- compose_email(
+  body = md("
+    Hej,
+
+    Hermed fremsendes datasættet sus_fly.
+
+    Venlig hilsen
+    Gruppe 11
+  ")
+) |>
+  add_attachment(file = "sus_fly.rds")
+
+#smtp_send(
+#  email,
+#  from = "ellenthygesen1@gmail.com",
+#  to = "sigint-20@fe.dk",
+#  subject = "Sus cirkulerende fly",
+#  credentials = creds(
+#    user = "ellenthygesen1@gmail.com",
+#    provider = "gmail"
+#  )
+#)
+
 
 # =====================================================================
 # Wulf kode - skal det bruges???
@@ -194,19 +225,19 @@ for (i in 1:length(fly_all)){
 
 # Alt nedenstående er noget wulf oprindeligt har skrevet
 
-tal <-1
+#tal <-1
 
-MapPlot(fly_circle[[tal]])
+#MapPlot(fly_circle[[tal]])
 
 # Giver forskellen mellem hver observation i forhold til den forrige
-dlatv=diff(fly_circle[[tal]]$lat)
-dlnv=diff(fly_circle[[tal]]$lng)
-dlatv=c(0,dlatv)
-dlnv=c(0,dlnv)
-fly_circle[[tal]]$dlat=dlatv
-fly_circle[[tal]]$dlng=dlnv
-max(fly_circle[[tal]]$dlng)
-max(fly_circle[[tal]]$dlat)
+#dlatv=diff(fly_circle[[tal]]$lat)
+#dlnv=diff(fly_circle[[tal]]$lng)
+#dlatv=c(0,dlatv)
+#dlnv=c(0,dlnv)
+#fly_circle[[tal]]$dlat=dlatv
+#fly_circle[[tal]]$dlng=dlnv
+#max(fly_circle[[tal]]$dlng)
+#max(fly_circle[[tal]]$dlat)
 
 #ggplot(flight_example,aes(x=time,y=lat))+geom_line()+
 #  theme(axis.text.x = element_text(angle = 90))+
