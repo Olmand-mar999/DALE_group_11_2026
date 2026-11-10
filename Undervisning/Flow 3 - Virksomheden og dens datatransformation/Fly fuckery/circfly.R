@@ -173,6 +173,8 @@ for (i in 1:length(fly_all)){
 
 MapPlot(fly_circle[[1]])
 
+fly_circle[[1]]
+
 # Lav dataframe der indeholder alle icaonavne, deres standardafvigelse,
 # og om hvorvidt de cirkulerer
 dataframe <- data.frame(icao=NULL, sdcourse=NULL)
@@ -220,7 +222,5 @@ max(fly_circle[[tal]]$dlat)
 
 # myOwnDetectionAlg
 # use diff to track change of fortegn
-
-
 
 # run R script from terminal
