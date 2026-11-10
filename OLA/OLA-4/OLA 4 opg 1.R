@@ -13,17 +13,17 @@ b <- ChromoteSession$new()
 
 # Bruges til at lukke sessionen eller hele browseren
 #b$close()
-#b$parent$close()
+b$parent$close()
 
 # find startlink
 baseurl="https://www.bilbasen.dk/brugt/bil/vw?fuel=3&includeengroscvr=true&includeleasing=false&page="
 # carname=readRDS("carnames.rds")
 
-cardf <- data.frame(prices = character(), make_model = character())
 cardf=as.data.frame(matrix(data="",nrow = 0,ncol = 2))
-colnames(cardf)=carname
+cardf <- data.frame(prices = character(), make_model = character())
+# colnames(cardf)=carname
 
-for (i in (1:limit)) {
+for (i in (1:136)) {
   # Bygger url'en
   url=paste0(baseurl,i)
   
