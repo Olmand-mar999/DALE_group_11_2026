@@ -158,8 +158,14 @@ fly_circle <- list()
 icao_off <- data.frame(icao = NULL)
 for (i in 1:length(fly_all)){
   fly <- fly_all[[i]]
-  kurs <- calculate_turn(fly$crs)
-  if (abs(kurs) > 360) {
+  if (any(fly$crs >= 0 & fly$crs < 45) &&
+      any(fly$crs >= 45 & fly$crs < 90) &&
+      any(fly$crs >= 90 & fly$crs < 135) &&
+      any(fly$crs >= 135 & fly$crs < 180) &&
+      any(fly$crs >= 180 & fly$crs < 225) &&
+      any(fly$crs >= 225 & fly$crs < 270) &&
+      any(fly$crs >= 270 & fly$crs < 315) &&
+      any(fly$crs >= 315 & fly$crs <= 360)) {
     fly_circle <- c(fly_circle, list(fly))
     icao_off <- rbind(icao_off, data.frame(icao = fly$icao24[1]))
   }
@@ -179,11 +185,6 @@ for (i in 1:length(fly_all)){
   dataframe <- rbind(dataframe, data)
 }
 
-calculate_turn(circ_fly$crs)
-calculate_turn(flight_example$crs)
-calculate_turn(fly_circle[[14]]$crs)
-calculate_turn(training_lists[[1]]$crs)
-MapPlot(fly_circle[[14]])
 
 # =====================================================================
 # Wulf kode - skal det bruges???
@@ -191,7 +192,9 @@ MapPlot(fly_circle[[14]])
 
 # Alt nedenstående er noget wulf oprindeligt har skrevet
 
-tal <- 1
+tal <-1
+
+MapPlot(fly_circle[[tal]])
 
 # Giver forskellen mellem hver observation i forhold til den forrige
 dlatv=diff(fly_circle[[tal]]$lat)

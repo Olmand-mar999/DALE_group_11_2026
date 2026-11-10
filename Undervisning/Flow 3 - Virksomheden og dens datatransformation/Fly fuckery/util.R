@@ -97,6 +97,7 @@ MapPlot <- function(flydata){
     addPolylines(lat = ~lat, lng = ~lng)
 }
 
+# Skal fjernes?
 # Beregner den samlede kursændring
 # hvis et fly har lavet et loop har det roteret over 360 grader
 calculate_turn <- function(crs) {
@@ -107,3 +108,5 @@ calculate_turn <- function(crs) {
   # Samlet kursændring
   sum(abs(diff_crs))
 }
+
+
