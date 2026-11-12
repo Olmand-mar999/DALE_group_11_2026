@@ -238,6 +238,8 @@ gsub("[A-Z]+","", data)
 gsub("[a-z]+","", data)
 gsub("[0-9]+","", data)
 
+gsub("[^a-z]","", data)
+
 
 # stringr and string extract and stuff------------------------------------------
 
