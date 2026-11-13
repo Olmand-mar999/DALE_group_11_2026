@@ -182,4 +182,32 @@ sammenligning$forskel_kr  <- round(sammenligning$pris_bilbasen - sammenligning$p
 sammenligning$forskel_pct <- round(100 * sammenligning$forskel_kr / sammenligning$pris_as24, 1)
 
 
+# ============================================================
+# 3. Hentning af tilbud fra power.dk/kampagne/aktuelt/
+# ============================================================
 
+power_sesh <- ChromoteSession$new()
+power_sesh$Page$navigate("https://www.power.dk/kampagne/aktuelt/")
+Sys.sleep(8)
+
+raa <- power_sesh$Runtime$evaluate("
+(async () => {
+  const urls = [...new Set(performance.getEntriesByType('resource')
+    .map(e => e.name)
+    .filter(n => n.includes('/api/v2/products?ids=')))];
+  const svar = [];
+  for (const u of urls) svar.push(await (await fetch(u)).text());
+  return JSON.stringify({urls: urls, svar: svar});
+})()", awaitPromise = TRUE, returnByValue = TRUE, timeout_ = 60)$result$value
+
+power_sesh$close()
+saveRDS(raa, "power_data.rds")
+
+res  <- jsonlite::fromJSON(raa)
+cols <- c("productId","title","price","previousPrice","categoryName","url")
+dele <- lapply(res$svar, function(s) { d <- jsonlite::fromJSON(s); if (length(d)) d[, cols] })
+power_df <- do.call(rbind, dele)
+power_df <- power_df[!duplicated(power_df$productId), ]
+
+length(res$urls)
+nrow(power_df)
