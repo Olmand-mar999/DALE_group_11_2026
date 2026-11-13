@@ -50,6 +50,9 @@ lav_df <- function(html_tekst) {
 df_liste <- lapply(alle_sider_fra_Bilbasen_VW, lav_df)
 bilbasen_df <- do.call(rbind, df_liste)
 
+# gem alle unikke biler
+bilbasen_df <- unique(bilbasen_df)
+
 # ID: tallet til sidst i linket ".../58-pro-performance-family-5d/7031939" -> 7031939
 bilbasen_df$id <- as.numeric(sub(".*/([0-9]+).*", "\\1", bilbasen_df$link))
 
@@ -72,6 +75,7 @@ bilbasen_df$raekkevidde <- ifelse(grepl("[0-9]+ km rækkevidde", bilbasen_df$det
                                   as.numeric(sub(".*?([0-9]+) km rækkevidde.*", "\\1",
                                                  bilbasen_df$detaljer)),NA)
 
+#saveRDS(bilbasen_df, "bilbasen.rds")
 
 # ============================================================
 # 1. SCRAPE autoscout24.de
@@ -119,6 +123,9 @@ lav_df_as24 <- function(html_tekst) {
 # Kør på alle sider og saml til én dataframe
 as24_liste <- lapply(as24_sider, lav_df_as24)
 as24_df <- do.call(rbind, as24_liste)
+
+# gem alle unikke biler
+as24_df <- unique(as24_df)
 
 # Gem prisen i danske kroner også
 as24_df$pris_uden_afgift <- as24_df$pris_eur * 7.46
