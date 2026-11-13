@@ -209,3 +209,26 @@ dele <- lapply(res$svar, function(s) { d <- jsonlite::fromJSON(s); if (length(d)
 power_df <- do.call(rbind, dele)
 power_df <- power_df[!duplicated(power_df$productId), ]
 
+
+# ============================================================
+# 4. Forsøgt webscraping af power
+# ============================================================
+
+#base <- "https://www.power.dk/kampagne/aktuelt/"
+#browser_sesh <- ChromoteSession$new()
+
+#browser_sesh$Page$navigate(base)
+
+#Sys.sleep(10)
+
+#data <- browser_sesh$Runtime$evaluate("document.documentElement.outerHTML")$result$value
+
+#browser_sesh$close()
+
+#side <- read_html(data)
+
+# h2, h3 og h4 er alle underoverskrifter
+#side %>%
+#  html_elements("h2, h3, h4") %>%
+#  html_text2()
+
