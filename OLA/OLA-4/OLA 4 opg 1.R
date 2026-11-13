@@ -190,20 +190,25 @@ power_sesh <- ChromoteSession$new()
 power_sesh$Page$navigate("https://www.power.dk/kampagne/aktuelt/")
 Sys.sleep(8)
 
-raa <- power_sesh$Runtime$evaluate("
+# Henter alt dataen - gør det via et api kald og java script
+raa <- powersesh$Runtime$evaluate("
 (async () => {
   const urls = [...new Set(performance.getEntriesByType('resource')
-    .map(e => e.name)
-    .filter(n => n.includes('/api/v2/products?ids=')))];
+    .map(e => e.name)                                        // keep only the URL of each request
+    .filter(n => n.includes('/api/v2/products?ids=')))];     // keep only the product API calls
   const svar = [];
-  for (const u of urls) svar.push(await (await fetch(u)).text());
+  for (const u of urls) svar.push(await (await fetch(u)).text());  // fetch each reply as text
   return JSON.stringify({urls: urls, svar: svar});
-})()", awaitPromise = TRUE, returnByValue = TRUE, timeout_ = 60)$result$value
+})()", awaitPromise = TRUE, returnByValue = TRUE, timeout = 60)$result$value
 
 power_sesh$close()
-saveRDS(raa, "power_data.rds")
+#saveRDS(raa, "power_data.rds")
 
+# kategori_tjek indeholder alle kategori navne
 res  <- jsonlite::fromJSON(raa)
+kategori_tjek <- lapply(res$svar, jsonlite::fromJSON)     # one data frame per API call
+
+# cols indeholder alle vores valgte kategorinavne
 cols <- c("productId","title","price","previousPrice","categoryName","url")
 dele <- lapply(res$svar, function(s) { d <- jsonlite::fromJSON(s); if (length(d)) d[, cols] })
 power_df <- do.call(rbind, dele)
@@ -214,21 +219,30 @@ power_df <- power_df[!duplicated(power_df$productId), ]
 # 4. Forsøgt webscraping af power
 # ============================================================
 
-#base <- "https://www.power.dk/kampagne/aktuelt/"
-#browser_sesh <- ChromoteSession$new()
+base <- "https://www.power.dk/kampagne/aktuelt/"
+browser_sesh <- ChromoteSession$new()
+browser_sesh$Page$navigate(base)
 
-#browser_sesh$Page$navigate(base)
+Sys.sleep(10)
 
-#Sys.sleep(10)
+data <- browser_sesh$Runtime$evaluate("document.documentElement.outerHTML")$result$value
 
-#data <- browser_sesh$Runtime$evaluate("document.documentElement.outerHTML")$result$value
+browser_sesh$close()
 
-#browser_sesh$close()
+side <- read_html(data)
 
-#side <- read_html(data)
+# Undersøg om klassen nu findes
+str_detect(data, "product-item-arguments-container")
+str_detect(data, "savings-label power-yellow-500 mobile-variant")
+str_detect(data, "price-content h-100-p")
+
+# sammenlign med om klasser kan findes for biler
+biler <- readRDS("bilbasen_alle_sider.rds")[1]
+str_detect(biler, "Listing_makeModel__7yqgs")
 
 # h2, h3 og h4 er alle underoverskrifter
-#side %>%
-#  html_elements("h2, h3, h4") %>%
-#  html_text2()
+side %>%
+  html_elements("h2, h3, h4") %>%
+  html_text2()
 
+# Den sidste underoverskrift den henter, er verificer du er et menneske
