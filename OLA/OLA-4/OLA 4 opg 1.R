@@ -85,14 +85,15 @@ baseurl_as24 <- "https://www.autoscout24.de/lst/volkswagen/ft_elektro?cy=D&damag
 #as24_sider <- list()
 
 #for (i in 1:200) {
-#  browser_sesh$Page$navigate(str_c(baseurl_as24, i, "&atype=C&search_id=222tiht5zxj&source=listpage_pagination"))
+#  as24side_url <- str_c(baseurl_as24, i, "&atype=C&search_id=222tiht5zxj&source=listpage_pagination")
+#  browser_sesh$Page$navigate(as24side_url)
 #  Sys.sleep(sample(3:7, 1))
 #  as24_sider[[i]] <- browser_sesh$Runtime$evaluate("document.documentElement.outerHTML")$result$value
 #  print(str_c("Side ", i, " hentet"))
 #}
 
 #browser_sesh$close()
-saveRDS(as24_sider, "autoscout24_alle_sider.rds")
+#saveRDS(as24_sider, "autoscout24_alle_sider.rds")
 
 as24_sider <- readRDS("autoscout24_alle_sider.rds")
 
@@ -108,40 +109,54 @@ lav_df_as24 <- function(html_tekst) {
     pris_eur        = as.numeric(html_attr(biler, "data-price")),
     km              = as.numeric(html_attr(biler, "data-mileage")),
     aargang         = as.numeric(sub(".*-", "", html_attr(biler, "data-first-registration"))),  # "08-2023" -> 2023
-    saelger         = html_attr(biler, "data-seller-type"),      # "d" = forhandler, "p" = privat
     postnr          = html_attr(biler, "data-listing-zip-code"),
     forhandler      = html_text2(forhandler_a),
     forhandler_link = html_attr(forhandler_a, "href"),
-    link            = paste0("https://www.autoscout24.de", html_attr(html_element(biler, "a"), "href")),
     stringsAsFactors = FALSE
   )
 }
 
-as24_df <- do.call(rbind, lapply(as24_sider, lav_df_as24))
+# Kør på alle sider og saml til én dataframe
+as24_liste <- lapply(as24_sider, lav_df_as24)
+as24_df <- do.call(rbind, as24_liste)
 
-as24_df$pris <- as24_df$pris_eur * 7.46
+# Gem prisen i danske kroner også
+as24_df$pris_uden_afgift <- as24_df$pris_eur * 7.46
+
+# Bestem afgiften. Rå afgift efter de almindelige trin (2026-satser)
+raa_afgift <- function(pris) {
+  0.25 * pmin(pris, 76400) +
+    0.85 * pmax(0, pmin(pris, 237400) - 76400) +
+    1.50 * pmax(0, pris - 237400) - 25500
+}
+
+# Elbil: kun den del af værdien over grænsen giver afgift, ganget med indfasningsprocenten
+# indfas = 0.48, grænse = 366300
+afgift_elbil <- function(pris) {
+  0.48 * pmax(0, raa_afgift(pris) - raa_afgift(366300))
+}
+
+as24_df$afgift     <- afgift_elbil(as24_df$pris_uden_afgift)
+as24_df$pris  <- as24_df$pris_uden_afgift + as24_df$afgift
 
 
 # ============================================================
 # 2. Sammenligning mellen bilbasen og autoscout24
 # ============================================================
 
-# Gør modelnavnene ens: "VW ID.3" og "id.3" -> "id.3"
+# sørg for modelnavnene er ens 
+# bilbasen skriver "VW ID.3" og autoscout skriver "id.3" for samme bil
 ens_model <- function(x) {
   x <- tolower(x)
   x <- sub("\n.*", "", x)                    # kun første linje
   x <- gsub("^(vw|volkswagen) ", "", x)      # fjern mærket
-  gsub(" ", "", x)                           # fjern mellemrum
+  x <- gsub(" ", "", x)                      # fjern mellemrum
 }
 
 bb <- data.frame(kilde = "Bilbasen",    model = ens_model(bilbasen_df$model),
                  aargang = bilbasen_df$aargang, km = bilbasen_df$km, pris = bilbasen_df$pris)
 as <- data.frame(kilde = "AutoScout24", model = ens_model(as24_df$model),
                  aargang = as24_df$aargang,     km = as24_df$km,     pris = as24_df$pris)
-
-# Tjek at modelnavnene matcher
-table(bb$model)
-table(as$model)
 
 # Gennemsnit og antal pr. model + årgang
 bb_gns <- aggregate(cbind(pris, km) ~ model + aargang, data = bb, FUN = mean)
@@ -150,7 +165,8 @@ bb_gns$antal <- aggregate(pris ~ model + aargang, data = bb, FUN = length)$pris
 as_gns <- aggregate(cbind(pris, km) ~ model + aargang, data = as, FUN = mean)
 as_gns$antal <- aggregate(pris ~ model + aargang, data = as, FUN = length)$pris
 
-# Side om side
+# Side om side. Siden både bilbasen og autoscout har samme kolonne navne
+# bruges suffixes til at give kolonnerne nye forskellige navne
 sammenligning <- merge(bb_gns, as_gns, by = c("model", "aargang"),
                        suffixes = c("_bilbasen", "_as24"))
 
@@ -158,6 +174,5 @@ sammenligning <- merge(bb_gns, as_gns, by = c("model", "aargang"),
 sammenligning$forskel_kr  <- round(sammenligning$pris_bilbasen - sammenligning$pris_as24)
 sammenligning$forskel_pct <- round(100 * sammenligning$forskel_kr / sammenligning$pris_as24, 1)
 
-sammenligning <- sammenligning[order(sammenligning$model, sammenligning$aargang), ]
-View(sammenligning)
+
 
