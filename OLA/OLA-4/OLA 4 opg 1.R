@@ -209,5 +209,3 @@ dele <- lapply(res$svar, function(s) { d <- jsonlite::fromJSON(s); if (length(d)
 power_df <- do.call(rbind, dele)
 power_df <- power_df[!duplicated(power_df$productId), ]
 
-length(res$urls)
-nrow(power_df)
