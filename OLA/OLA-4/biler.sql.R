@@ -14,8 +14,8 @@ wc <- dbConnect(MariaDB(),
                 db = "emp",
                 port = "3306")
 
-#biler <- readRDS("bilbasen.rds")
-#biler2 <- unique(biler)
+biler <- readRDS("html_fuckery/bilbasen.rds")
+biler <- unique(biler)
 
 #dbWriteTable(wc, "biler", biler)
 
