@@ -168,6 +168,7 @@ for (i in 1:length(fly_all)){
   fly <- fly_all[[i]]
   data <- data.frame(icao = fly$icao24[1], 
                      sdcourse = fly$sd[1],
+                     lmres = lm(lat ~ lng+crs+alt, data=fly)$r.squared
                      isOff = ifelse(fly$icao24[1] %in% icao_off[,1], 1, 0))
   sdcourse <- data.frame
   dataframe <- rbind(dataframe, data)
