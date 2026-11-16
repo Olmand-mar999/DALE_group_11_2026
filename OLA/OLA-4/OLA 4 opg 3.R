@@ -9,14 +9,14 @@ library(leaflet)
 source("util.R")
 
 # hent flydata eksempel og gemte rds fly
-circ_fly <- readRDS("circMT.rds")
+circ_fly <- readRDS("fly_fuckery/circMT.rds")
 circ_fly$sd <- sd(circ_fly$crs)
-currentDF <- readRDS("currentDF2.rds")
-flight_example <- readRDS("flight_example.rds")
-fly_data <- readRDS("fly_liste.rds")
+currentDF <- readRDS("fly_fuckery/currentDF2.rds")
+flight_example <- readRDS("fly_fuckery/flight_example.rds")
+fly_data <- readRDS("fly_fuckery/fly_liste.rds")
 
 # gemmer data i en rds fil i mappen training_data
-training_files <- list.files(path = "./training_data", pattern = "*rds", full.names=T)
+training_files <- list.files(path = "./fly_fuckery/training_data", pattern = "*rds", full.names=T)
 training <- lapply(training_files, readRDS)
 
 # tilføj standardafvigelse til training files
@@ -175,8 +175,8 @@ for (i in 1:length(fly_all)){
 }
 
 sus_fly <- dataframe[dataframe$isOff == 1,]
-saveRDS(sus_fly, "sus_fly.rds")
-readRDS("sus_fly.rds")
+saveRDS(sus_fly, "fly_fuckery/sus_fly.rds")
+readRDS("fly_fuckery/sus_fly.rds")
 
 # =====================================================================
 # 6. Send e-mail

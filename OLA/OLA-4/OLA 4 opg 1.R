@@ -26,7 +26,7 @@ baseurl <- "https://www.bilbasen.dk/brugt/bil/vw?fuel=3&includeengroscvr=true&in
 #browser_sesh$close()
 #saveRDS(alle_sider, "bilbasen_alle_sider.rds")
 
-alle_sider_fra_Bilbasen_VW <- readRDS("bilbasen_alle_sider.rds")
+alle_sider_fra_Bilbasen_VW <- readRDS("html_fuckery/bilbasen_alle_sider.rds")
 
 # Funktion der laver én dataframe ud fra én sides HTML
 lav_df <- function(html_tekst) {
@@ -75,7 +75,7 @@ bilbasen_df$raekkevidde <- ifelse(grepl("[0-9]+ km rækkevidde", bilbasen_df$det
                                   as.numeric(sub(".*?([0-9]+) km rækkevidde.*", "\\1",
                                                  bilbasen_df$detaljer)),NA)
 
-#saveRDS(bilbasen_df, "bilbasen.rds")
+#saveRDS(bilbasen_df, "html_fuckery/bilbasen.rds")
 
 # ============================================================
 # 1. SCRAPE autoscout24.de
@@ -99,7 +99,7 @@ baseurl_as24 <- "https://www.autoscout24.de/lst/volkswagen/ft_elektro?cy=D&damag
 #browser_sesh$close()
 #saveRDS(as24_sider, "autoscout24_alle_sider.rds")
 
-as24_sider <- readRDS("autoscout24_alle_sider.rds")
+as24_sider <- readRDS("html_fuckery/autoscout24_alle_sider.rds")
 
 lav_df_as24 <- function(html_tekst) {
   side  <- read_html(html_tekst)
@@ -202,7 +202,7 @@ raa <- powersesh$Runtime$evaluate("
 })()", awaitPromise = TRUE, returnByValue = TRUE, timeout = 60)$result$value
 
 power_sesh$close()
-#saveRDS(raa, "power_data.rds")
+#saveRDS(raa, "html_fuckery/power_data.rds")
 
 # kategori_tjek indeholder alle kategori navne
 res  <- jsonlite::fromJSON(raa)
@@ -237,7 +237,7 @@ str_detect(data, "savings-label power-yellow-500 mobile-variant")
 str_detect(data, "price-content h-100-p")
 
 # sammenlign med om klasser kan findes for biler
-biler <- readRDS("bilbasen_alle_sider.rds")[1]
+biler <- readRDS("html_fuckery/bilbasen_alle_sider.rds")[1]
 str_detect(biler, "Listing_makeModel__7yqgs")
 
 # h2, h3 og h4 er alle underoverskrifter
