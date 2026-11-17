@@ -194,7 +194,7 @@ email <- compose_email(
     Gruppe 11
   ")
 ) |>
-  add_attachment(file = "sus_fly.rds")
+  add_attachment(file = "fly_fuckery/sus_fly.rds")
 
 #smtp_send(
 #  email,
