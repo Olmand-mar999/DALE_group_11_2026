@@ -42,6 +42,7 @@ lav_df <- function(html_tekst) {
     }),
     lokation = html_text2(html_element(biler, "[class*='Listing_location']")),
     link     = html_attr(html_element(biler, "a"), "href"),
+    logo     = sub("\\?.*", "", html_attr(html_element(biler, "img[class*='dealerLogoCard']"), "src")),
     stringsAsFactors = FALSE
   )
 }
@@ -55,6 +56,9 @@ bilbasen_df <- unique(bilbasen_df)
 
 # ID: tallet til sidst i linket ".../58-pro-performance-family-5d/7031939" -> 7031939
 bilbasen_df$id <- as.numeric(sub(".*/([0-9]+).*", "\\1", bilbasen_df$link))
+
+bilbasen_df <- distinct(bilbasen_df, id, .keep_all = TRUE)
+bilbasen_df$scrapedate <- Sys.Date()
 
 # Pris som tal: "249.900 kr." -> 249900
 bilbasen_df$pris <- as.numeric(gsub("[^0-9]", "", bilbasen_df$pris_txt))
@@ -76,6 +80,8 @@ bilbasen_df$raekkevidde <- ifelse(grepl("[0-9]+ km rækkevidde", bilbasen_df$det
                                                  bilbasen_df$detaljer)),NA)
 
 #saveRDS(bilbasen_df, "html_fuckery/bilbasen.rds")
+
+print(alle_sider_fra_Bilbasen_VW[[6]])
 
 # ============================================================
 # 1. SCRAPE autoscout24.de
