@@ -116,3 +116,4 @@ priser <- data.frame(
 
 dbWriteTable(wc, "bil_priser", priser, append = T)
 
+
