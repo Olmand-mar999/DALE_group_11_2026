@@ -188,6 +188,7 @@ sammenligning$forskel_kr  <- round(sammenligning$pris_bilbasen - sammenligning$p
 sammenligning$forskel_pct <- round(100 * sammenligning$forskel_kr / sammenligning$pris_as24, 1)
 
 library(ggplot2)
+#Plot 1
 
 moerk_lilla <- "#5b2a9e"   # dyrere i Danmark
 lys_lilla   <- "#b89be6"   # billigere i Danmark
@@ -231,6 +232,138 @@ p <- ggplot(plot_data, aes(x = forskel_pct, y = reorder(navn, forskel_pct), fill
 p
 ggsave("prisforskel.png", p, width = 10, height = 5.5, dpi = 300, bg = "white")
 
+#PLOT 2
+
+library(ggplot2)
+library(dplyr)
+library(scales)
+
+moerk_lilla <- "#5b2a9e"   # Bilbasen (Danmark)
+graa        <- "#a9a6b8"   # AutoScout24 (Tyskland)
+
+valgt_model   <- "id.3"
+valgt_aargang <- 2023
+
+punkter <- samlet_el %>%
+  filter(model == valgt_model, aargang == valgt_aargang, !is.na(km), !is.na(pris))
+
+km_grid <- seq(0, quantile(punkter$km, 0.98), length.out = 100)
+linjer <- expand.grid(km = km_grid,
+                      kilde = factor(c("AutoScout24", "Bilbasen"), levels = levels(samlet_el$kilde)),
+                      model = valgt_model, aargang = valgt_aargang)
+linjer$pris <- predict(model_lm2, newdata = linjer)
+
+forskel <- coef(model_lm2)["kildeBilbasen"]
+pil_km  <- 90000
+pil_y   <- predict(model_lm2, newdata = data.frame(
+  km = pil_km, model = valgt_model, aargang = valgt_aargang,
+  kilde = factor(c("AutoScout24", "Bilbasen"), levels = levels(samlet_el$kilde))))
+
+kr  <- label_number(big.mark = ".", decimal.mark = ",", suffix = " kr.")
+kmf <- label_number(big.mark = ".", decimal.mark = ",", suffix = " km")
+
+p2 <- ggplot(punkter, aes(x = km, y = pris, colour = kilde)) +
+  geom_point(alpha = 0.35, size = 1.6) +
+  geom_line(data = linjer, linewidth = 1.6) +
+  annotate("segment", x = pil_km, xend = pil_km, y = pil_y[1], yend = pil_y[2],
+           arrow = arrow(ends = "both", length = unit(0.15, "cm")), colour = "black") +
+  annotate("label", x = pil_km + 3000, y = mean(pil_y), hjust = 0, label.size = 0,
+           label = paste0("+", kr(round(forskel, -2)), "\ni Danmark"), fontface = "bold", size = 4) +
+  scale_colour_manual(values = c("Bilbasen" = moerk_lilla, "AutoScout24" = graa),
+                      labels = c("Bilbasen" = "Bilbasen (Danmark)",
+                                 "AutoScout24" = "AutoScout24 (Tyskland, inkl. afgift)"),
+                      name = NULL) +
+  scale_x_continuous(labels = kmf, limits = c(0, quantile(punkter$km, 0.98))) +
+  scale_y_continuous(labels = kr) +
+  labs(title = "Samme bil koster ca. 24.000 kr. mere i Danmark",
+       subtitle = paste0("VW ID.3, årgang ", valgt_aargang,
+                         ". Punkter = biler, linjer = regressionsmodellen."),
+       x = "Kilometertal", y = "Pris") +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.minor = element_blank(),
+        legend.position = "top")
+
+p2
+ggsave("regression_id3.png", p2, width = 10, height = 6, dpi = 300, bg = "white")
+
+#plot 3
+# ============================================================
+# Figur 8: Merpris i Danmark ved forskellige indfasningsprocenter
+# Kræver at følgende allerede findes fra scriptet:
+#   as24_df, bb, raa_afgift(), ens_model()
+# ============================================================
+
+
+moerk_lilla <- "#5b2a9e"
+lys_lilla   <- "#b89be6"
+
+elbiler <- c("id.3", "id.4", "id.5", "id.7", "id.buzz", "e-up!", "id.polo")
+
+# Andel af tyske biler, der betaler 0 kr. i afgift (forklarer figuren)
+andel_0_afgift <- mean(as24_df$afgift == 0, na.rm = TRUE)
+andel_0_afgift
+
+# Afgift for elbil med valgfri indfasningsprocent
+afgift_elbil_x <- function(pris, indfas) {
+  indfas * pmax(0, raa_afgift(pris) - raa_afgift(366300))
+}
+
+# Kør regressionen for hver indfasningsprocent
+indfas_vaerdier <- seq(0.40, 1.00, by = 0.04)
+
+scenarier <- lapply(indfas_vaerdier, function(indfas) {
+  as_x <- data.frame(kilde   = "AutoScout24",
+                     model   = ens_model(as24_df$model),
+                     aargang = as24_df$aargang,
+                     km      = as24_df$km,
+                     pris    = as24_df$pris_uden_afgift +
+                       afgift_elbil_x(as24_df$pris_uden_afgift, indfas))
+  data_x <- rbind(bb, as_x) %>% filter(model %in% elbiler)
+  data_x$kilde <- relevel(factor(data_x$kilde), ref = "AutoScout24")
+  fit <- lm(pris ~ km + factor(aargang) + model + kilde, data = data_x)
+  data.frame(indfas     = indfas,
+             merpris_dk = unname(coef(fit)["kildeBilbasen"]),
+             lav        = confint(fit)["kildeBilbasen", 1],
+             hoej       = confint(fit)["kildeBilbasen", 2])
+})
+scenarier <- do.call(rbind, scenarier)
+scenarier
+
+# Merpris i dag (48 %) og ved fuld afgift (100 %)
+merpris_i_dag <- scenarier$merpris_dk[abs(scenarier$indfas - 0.48) < 0.001]
+merpris_fuld  <- scenarier$merpris_dk[abs(scenarier$indfas - 1.00) < 0.001]
+merpris_i_dag
+merpris_fuld
+
+kr <- label_number(big.mark = ".", decimal.mark = ",", suffix = " kr.")
+
+p3 <- ggplot(scenarier, aes(x = indfas, y = merpris_dk)) +
+  geom_hline(yintercept = 0, colour = "grey40") +
+  geom_ribbon(aes(ymin = lav, ymax = hoej), fill = lys_lilla, alpha = 0.4) +
+  geom_line(colour = moerk_lilla, linewidth = 1.4) +
+  geom_point(data = data.frame(indfas = c(0.48, 1.00),
+                               merpris_dk = c(merpris_i_dag, merpris_fuld)),
+             colour = moerk_lilla, size = 3.5) +
+  annotate("text", x = 0.48, y = merpris_i_dag, vjust = -1.3, fontface = "bold",
+           label = paste0("I dag (48 %): ", kr(round(merpris_i_dag, -2)))) +
+  annotate("text", x = 1.00, y = merpris_fuld, vjust = -1.3, hjust = 0.9, fontface = "bold",
+           label = paste0("Fuld afgift: ", kr(round(merpris_fuld, -2)))) +
+  scale_x_continuous(labels = percent, breaks = seq(0.4, 1, by = 0.1)) +
+  scale_y_continuous(labels = kr, limits = c(0, NA)) +
+  labs(title = "Import kan betale sig, selv hvis elbiler betaler fuld afgift",
+       subtitle = paste0("Merpris i Danmark for samme bil (regression) ved forskellige indfasningsprocenter. ",
+                         "Lilla bånd = 95 %-konfidensinterval.\n",
+                         percent(andel_0_afgift, accuracy = 1),
+                         " af de tyske biler ligger under bundfradraget og betaler derfor 0 kr. i afgift."),
+       x = "Indfasningsprocent for registreringsafgift på elbiler",
+       y = "Merpris i Danmark") +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold"),
+        panel.grid.minor = element_blank())
+
+p3
+ggsave("figur8_afgift.png", p3, width = 10, height = 6, dpi = 300, bg = "white")
 # ============================================================
 # 3. Hentning af tilbud fra power.dk/kampagne/aktuelt/
 # ============================================================
