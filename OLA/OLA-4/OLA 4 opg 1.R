@@ -188,7 +188,6 @@ sammenligning$forskel_kr  <- round(sammenligning$pris_bilbasen - sammenligning$p
 sammenligning$forskel_pct <- round(100 * sammenligning$forskel_kr / sammenligning$pris_as24, 1)
 
 library(ggplot2)
-library(dplyr)
 
 moerk_lilla <- "#5b2a9e"   # dyrere i Danmark
 lys_lilla   <- "#b89be6"   # billigere i Danmark
