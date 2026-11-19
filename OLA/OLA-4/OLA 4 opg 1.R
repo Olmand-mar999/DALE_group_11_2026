@@ -187,6 +187,50 @@ sammenligning <- merge(bb_gns, as_gns, by = c("model", "aargang"),
 sammenligning$forskel_kr  <- round(sammenligning$pris_bilbasen - sammenligning$pris_as24)
 sammenligning$forskel_pct <- round(100 * sammenligning$forskel_kr / sammenligning$pris_as24, 1)
 
+library(ggplot2)
+library(dplyr)
+
+moerk_lilla <- "#5b2a9e"   # dyrere i Danmark
+lys_lilla   <- "#b89be6"   # billigere i Danmark
+min_antal   <- 5
+
+plot_data <- sammenligning %>%
+  filter(antal_bilbasen >= min_antal, antal_as24 >= min_antal) %>%
+  mutate(model = recode(model, "id.3" = "ID.3", "id.4" = "ID.4", "id.5" = "ID.5",
+                        "id.7" = "ID.7", "id.buzz" = "ID. Buzz", "id.polo" = "ID. Polo"),
+         vaegt = antal_bilbasen + antal_as24) %>%
+  group_by(model) %>%
+  summarise(forskel_pct = weighted.mean(forskel_pct, vaegt),
+            forskel_kr  = weighted.mean(forskel_kr, vaegt),
+            antal       = sum(vaegt)) %>%
+  mutate(retning = ifelse(forskel_pct > 0, "Dyrere i Danmark", "Billigere i Danmark"),
+         navn    = paste0(model, "  (", antal, " biler)"),
+         label   = paste0(sub("\\.", ",", sprintf("%+.1f", forskel_pct)), " %  (",
+                          ifelse(forskel_kr > 0, "+", "−"),
+                          format(abs(round(forskel_kr, -3)), big.mark = ".", decimal.mark = ","),
+                          " kr.)"))
+
+p <- ggplot(plot_data, aes(x = forskel_pct, y = reorder(navn, forskel_pct), fill = retning)) +
+  geom_col(width = 0.65) +
+  geom_vline(xintercept = 0, colour = "grey40") +
+  geom_text(aes(label = label, hjust = ifelse(forskel_pct >= 0, -0.08, 1.08)), size = 3.6) +
+  scale_fill_manual(values = c("Dyrere i Danmark" = moerk_lilla,
+                               "Billigere i Danmark" = lys_lilla), name = NULL) +
+  scale_x_continuous(labels = function(x) paste0(ifelse(x > 0, "+", ""), x, " %"),
+                     expand = expansion(mult = 0.35)) +
+  labs(title = "Brugte VW-elbiler er typisk dyrere i Danmark end i Tyskland",
+       subtitle = paste0("Gns. prisforskel pr. model, vægtet efter antal biler. Tysk pris inkl. beregnet dansk afgift.\n",
+                         "Kun model/årgang med mindst ", min_antal, " biler på begge sider."),
+       x = "Prisforskel, Bilbasen vs. AutoScout24", y = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold"),
+        axis.text.y = element_text(face = "bold", colour = "black"),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.position = "top")
+
+p
+ggsave("prisforskel.png", p, width = 10, height = 5.5, dpi = 300, bg = "white")
 
 # ============================================================
 # 3. Hentning af tilbud fra power.dk/kampagne/aktuelt/
