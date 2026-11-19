@@ -288,6 +288,7 @@ p2
 ggsave("regression_id3.png", p2, width = 10, height = 6, dpi = 300, bg = "white")
 
 #plot 3
+
 # ============================================================
 # Figur 8: Merpris i Danmark ved forskellige indfasningsprocenter
 # Kræver at følgende allerede findes fra scriptet:
@@ -330,8 +331,8 @@ scenarier <- lapply(indfas_vaerdier, function(indfas) {
 scenarier <- do.call(rbind, scenarier)
 scenarier
 
-# Merpris i dag (48 %) og ved fuld afgift (100 %)
-merpris_i_dag <- scenarier$merpris_dk[abs(scenarier$indfas - 0.48) < 0.001]
+# Merpris i dag (40 % i 2026) og ved fuld afgift (100 %)
+merpris_i_dag <- scenarier$merpris_dk[abs(scenarier$indfas - 0.40) < 0.001]
 merpris_fuld  <- scenarier$merpris_dk[abs(scenarier$indfas - 1.00) < 0.001]
 merpris_i_dag
 merpris_fuld
@@ -342,11 +343,11 @@ p3 <- ggplot(scenarier, aes(x = indfas, y = merpris_dk)) +
   geom_hline(yintercept = 0, colour = "grey40") +
   geom_ribbon(aes(ymin = lav, ymax = hoej), fill = lys_lilla, alpha = 0.4) +
   geom_line(colour = moerk_lilla, linewidth = 1.4) +
-  geom_point(data = data.frame(indfas = c(0.48, 1.00),
+  geom_point(data = data.frame(indfas = c(0.40, 1.00),
                                merpris_dk = c(merpris_i_dag, merpris_fuld)),
              colour = moerk_lilla, size = 3.5) +
-  annotate("text", x = 0.48, y = merpris_i_dag, vjust = -1.3, fontface = "bold",
-           label = paste0("I dag (48 %): ", kr(round(merpris_i_dag, -2)))) +
+  annotate("text", x = 0.40, y = merpris_i_dag, vjust = -1.3, hjust = 0.1, fontface = "bold",
+           label = paste0("I dag (40 %): ", kr(round(merpris_i_dag, -2)))) +
   annotate("text", x = 1.00, y = merpris_fuld, vjust = -1.3, hjust = 0.9, fontface = "bold",
            label = paste0("Fuld afgift: ", kr(round(merpris_fuld, -2)))) +
   scale_x_continuous(labels = percent, breaks = seq(0.4, 1, by = 0.1)) +
