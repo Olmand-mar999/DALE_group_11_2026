@@ -102,6 +102,8 @@ Plot_time_crs(circ_fly)
 Plot_time_alt(circ_fly)
 MapPlot(circ_fly)
 
+
+
 # =====================================================================
 # 4. Hent tracks for alle fly
 # =====================================================================
@@ -178,6 +180,9 @@ sus_fly <- dataframe[dataframe$isOff == 1,]
 saveRDS(sus_fly, "fly_fuckery/sus_fly.rds")
 readRDS("fly_fuckery/sus_fly.rds")
 
+
+
+
 # =====================================================================
 # 6. Send e-mail
 # =====================================================================
@@ -206,6 +211,314 @@ email <- compose_email(
 #    provider = "gmail"
 #  )
 #)
+#------------------------------------------------------------------------
+#PLOTS EMMA
+#------------------------------------------------------------------------
+# =====================================================================
+# PLOTS (erstatter Plot_lat_lng, Plot_time_crs, Plot_time_alt, MapPlot)
+# Indsæt efter afsnit 2 (når flight_example og circ_fly er indlæst)
+# =====================================================================
+
+library(ggplot2)
+library(dplyr)
+library(leaflet)
+
+moerk_lilla <- "#5b2a9e"
+lys_lilla   <- "#d9c8f5"
+graa        <- "#8a879c"
+
+tema_fly <- theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold"),
+        plot.subtitle = element_text(colour = "grey35"),
+        panel.grid.minor = element_blank())
+
+# Tid i minutter fra første måling
+klargoer <- function(fly) {
+  fly <- as.data.frame(fly)
+  fly$minutter <- (as.numeric(fly$time) - min(as.numeric(fly$time), na.rm = TRUE)) / 60
+  fly
+}
+
+# Rute set oppefra med pile i flyveretningen (erstatter Plot_lat_lng)
+plot_rute <- function(fly, titel, antal_pile = 12) {
+  fly <- klargoer(fly)
+  fly$lng <- as.numeric(fly$lng); fly$lat <- as.numeric(fly$lat)
+  n <- nrow(fly)
+  idx <- unique(round(seq(2, n - 1, length.out = antal_pile)))
+  pile <- data.frame(x = fly$lng[idx], y = fly$lat[idx],
+                     xend = fly$lng[idx + 1], yend = fly$lat[idx + 1])
+  # Placering af kompasrosen i øverste højre hjørne
+  xr <- range(fly$lng, na.rm = TRUE); yr <- range(fly$lat, na.rm = TRUE)
+  dx <- diff(xr); dy <- diff(yr); r <- 0.07 * max(dx, dy)
+  kx <- xr[2] + 0.12 * dx; ky <- yr[2] - 0.05 * dy
+  ggplot(fly, aes(x = lng, y = lat)) +
+    annotate("segment", x = kx, xend = kx, y = ky - r, yend = ky + r, colour = "grey30",
+             linewidth = 0.8, arrow = arrow(length = unit(0.3, "cm"), type = "closed")) +
+    annotate("segment", x = kx - r, xend = kx + r, y = ky, yend = ky, colour = "grey30", linewidth = 0.5) +
+    annotate("text", x = kx, y = ky + r * 1.45, label = "N", fontface = "bold", size = 4.5) +
+    annotate("text", x = kx + r * 1.4, y = ky, label = "\u00d8", size = 3.5, colour = "grey30") +
+    annotate("text", x = kx, y = ky - r * 1.4, label = "S", size = 3.5, colour = "grey30") +
+    annotate("text", x = kx - r * 1.4, y = ky, label = "V", size = 3.5, colour = "grey30") +
+    geom_path(aes(colour = minutter), linewidth = 1.2, lineend = "round") +
+    geom_segment(data = pile, aes(x = x, y = y, xend = xend, yend = yend),
+                 colour = "black", linewidth = 0.4,
+                 arrow = arrow(length = unit(0.25, "cm"), type = "closed")) +
+    geom_point(data = fly[1, ], colour = "black", size = 3.5, shape = 17) +
+    geom_point(data = fly[n, ], colour = "black", size = 3.5, shape = 15) +
+    scale_colour_gradient(low = lys_lilla, high = moerk_lilla, name = "Minutter") +
+    coord_quickmap() +
+    labs(title = titel, subtitle = "Pilene viser flyveretningen. Trekant = start, firkant = slut",
+         x = "L\u00e6ngdegrad", y = "Breddegrad") +
+    tema_fly
+}
+
+# Kompas: hvor meget tid har flyet brugt i hver retning?
+plot_kompas <- function(fly, titel, farve = moerk_lilla) {
+  fly <- as.data.frame(fly)
+  ggplot(data.frame(crs = as.numeric(fly$crs) %% 360), aes(x = crs)) +
+    geom_histogram(breaks = seq(0, 360, by = 15), fill = farve, colour = "white",
+                   linewidth = 0.3, boundary = 0) +
+    coord_polar(start = 0, direction = 1) +
+    scale_x_continuous(limits = c(0, 360), breaks = c(0, 45, 90, 135, 180, 225, 270, 315),
+                       labels = c("N", "N\u00d8", "\u00d8", "S\u00d8", "S", "SV", "V", "NV")) +
+    labs(title = titel, subtitle = "S\u00f8jlerne viser antal m\u00e5linger i hver retning (15 grader)",
+         x = NULL, y = NULL) +
+    tema_fly +
+    theme(axis.text.y = element_blank(),
+          axis.text.x = element_text(size = 12, face = "bold", colour = "black"))
+}
+
+# To kompasser ved siden af hinanden (hvert kompas skaleres til sin egen største retning)
+plot_kompas_sammenlign <- function(normal, cirkel) {
+  tael <- function(fly, navn) {
+    crs <- as.numeric(fly$crs) %% 360
+    midt <- seq(7.5, 352.5, by = 15)
+    antal <- as.numeric(table(cut(crs, breaks = seq(0, 360, by = 15), right = FALSE)))
+    data.frame(retning = midt, andel = antal / max(antal), fly = navn)
+  }
+  d <- rbind(tael(normal, "Normalt fly"), tael(cirkel, "Cirklende fly"))
+  d$fly <- factor(d$fly, levels = c("Normalt fly", "Cirklende fly"))
+  ggplot(d, aes(x = retning, y = andel, fill = fly)) +
+    geom_col(width = 15, colour = "white", linewidth = 0.3) +
+    coord_polar(start = 0, direction = 1) +
+    facet_wrap(~ fly) +
+    scale_fill_manual(values = c("Normalt fly" = graa, "Cirklende fly" = moerk_lilla), guide = "none") +
+    scale_x_continuous(limits = c(0, 360), breaks = c(0, 45, 90, 135, 180, 225, 270, 315),
+                       labels = c("N", "N\u00d8", "\u00d8", "S\u00d8", "S", "SV", "V", "NV")) +
+    scale_y_continuous(limits = c(0, 1)) +
+    labs(title = "Kompas: hvilke retninger har flyet fl\u00f8jet i?",
+         subtitle = "Et normalt fly holder \u00e9n retning. Et cirklende fly flyver i alle retninger.",
+         x = NULL, y = NULL) +
+    tema_fly +
+    theme(axis.text.y = element_blank(),
+          axis.text.x = element_text(size = 11, face = "bold", colour = "black"),
+          strip.text = element_text(face = "bold", size = 13))
+}
+
+# Kurs over tid (erstatter Plot_time_crs)
+plot_kurs <- function(fly, titel) {
+  fly <- klargoer(fly)
+  ggplot(fly, aes(x = minutter, y = as.numeric(crs))) +
+    geom_point(colour = moerk_lilla, size = 1.5, alpha = 0.8) +
+    scale_y_continuous(limits = c(0, 360), breaks = seq(0, 360, 90),
+                       labels = c("N", "Ø", "S", "V", "N")) +
+    labs(title = titel, x = "Minutter siden første måling", y = "Kurs") +
+    tema_fly
+}
+
+# Højde over tid (erstatter Plot_time_alt)
+plot_hoejde <- function(fly, titel) {
+  fly <- klargoer(fly)
+  ggplot(fly, aes(x = minutter, y = as.numeric(alt))) +
+    geom_area(fill = lys_lilla, alpha = 0.7) +
+    geom_line(colour = moerk_lilla, linewidth = 1.1) +
+    scale_y_continuous(labels = function(x) paste(format(x, big.mark = ".", decimal.mark = ",",
+                                                         scientific = FALSE), "m")) +
+    labs(title = titel, x = "Minutter siden første måling", y = "Højde") +
+    tema_fly
+}
+
+
+# Nordpil til kortene
+nordpil_html <- paste0(
+  "<div style='text-align:center;font-family:sans-serif;font-weight:bold;",
+  "background:white;padding:4px 8px;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.3);'>",
+  "<div style='font-size:22px;line-height:22px;color:", "#5b2a9e", "'>&#9650;</div>N</div>")
+
+# Kort (erstatter MapPlot)
+kort_fly <- function(fly, farve = moerk_lilla, navn = fly$icao24[1]) {
+  fly <- as.data.frame(fly)
+  n <- nrow(fly)
+  leaflet(fly) %>%
+    addTiles() %>%
+    addPolylines(lng = ~as.numeric(lng), lat = ~as.numeric(lat),
+                 color = farve, weight = 4, opacity = 0.9,
+                 popup = paste0("<b>", navn, "</b><br>Maks. højde: ",
+                                round(max(as.numeric(fly$alt), na.rm = TRUE)), " m")) %>%
+    addCircleMarkers(lng = as.numeric(fly$lng[1]), lat = as.numeric(fly$lat[1]),
+                     radius = 7, color = "white", weight = 2,
+                     fillColor = "black", fillOpacity = 1, label = "Start") %>%
+    addCircleMarkers(lng = as.numeric(fly$lng[n]), lat = as.numeric(fly$lat[n]),
+                     radius = 7, color = "white", weight = 2,
+                     fillColor = farve, fillOpacity = 1, label = "Slut") %>%
+    addControl(html = nordpil_html, position = "topright")
+}
+
+# Normalt og cirklende fly på samme kort
+kort_sammenlign <- function(normal, cirkel) {
+  normal <- as.data.frame(normal); cirkel <- as.data.frame(cirkel)
+  leaflet() %>%
+    addTiles() %>%
+    addPolylines(lng = as.numeric(normal$lng), lat = as.numeric(normal$lat),
+                 color = graa, weight = 4, opacity = 0.9, group = "Normalt fly") %>%
+    addPolylines(lng = as.numeric(cirkel$lng), lat = as.numeric(cirkel$lat),
+                 color = moerk_lilla, weight = 4, opacity = 0.9, group = "Cirklende fly") %>%
+    addLegend("bottomright", colors = c(graa, moerk_lilla),
+              labels = c("Normalt fly", "Cirklende fly"), opacity = 1) %>%
+    addLayersControl(overlayGroups = c("Normalt fly", "Cirklende fly"),
+                     options = layersControlOptions(collapsed = FALSE)) %>%
+    addControl(html = nordpil_html, position = "topleft")
+}
+
+# ---- Opgave 3.1: fly fordelt på lande ----
+lande <- as.data.frame(table(currentDF$origin_country))
+colnames(lande) <- c("land", "antal")
+lande <- head(lande[order(-lande$antal), ], 15)
+
+p_lande <- ggplot(lande, aes(x = antal, y = reorder(land, antal))) +
+  geom_col(fill = moerk_lilla, width = 0.7) +
+  geom_text(aes(label = antal), hjust = -0.3, size = 3.8) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.1))) +
+  labs(title = "Fly over Nordsøen fordelt på land",
+       subtitle = paste("De", nrow(lande), "lande med flest fly i luftrummet"),
+       x = "Antal fly", y = NULL) +
+  tema_fly + theme(panel.grid.major.y = element_blank())
+p_lande
+
+# ---- Opgave 3.2: plots for nyt fly ----
+p_rute_normal   <- plot_rute(flight_example, "Normalt fly");                                 p_rute_normal
+p_kurs_normal   <- plot_kurs(flight_example, "Normalt fly: kursen er næsten konstant");  p_kurs_normal
+p_hoejde_normal <- plot_hoejde(flight_example, "Normalt fly");                               p_hoejde_normal
+kort_fly(flight_example, farve = graa)
+
+# ---- Opgave 3.2: plots for cirklende fly ----
+p_rute_cirkel   <- plot_rute(circ_fly, "Cirklende fly");                                     p_rute_cirkel
+p_kurs_cirkel   <- plot_kurs(circ_fly, "Cirklende fly: kursen løber hele vejen rundt"); p_kurs_cirkel
+p_hoejde_cirkel <- plot_hoejde(circ_fly, "Cirklende fly");                                   p_hoejde_cirkel
+kort_fly(circ_fly)
+
+# Begge fly på samme kort
+kort_sammenlign(flight_example, circ_fly)
+
+# Kompas for hvert fly og side om side
+p_kompas_normal <- plot_kompas(flight_example, "Kompas: normalt fly", farve = graa); p_kompas_normal
+p_kompas_cirkel <- plot_kompas(circ_fly, "Kompas: cirklende fly");                   p_kompas_cirkel
+p_kompas        <- plot_kompas_sammenlign(flight_example, circ_fly);                  p_kompas
+
+
+# =====================================================================
+# 5. Find alle cirkulerende fly
+# =====================================================================
+
+# Samlet drejning: hvor mange grader har flyet drejet i alt?
+# Kursen hopper fra 359 til 0 grader, så hver ændring lægges i intervallet -180 til 180.
+kurs_aendring <- function(crs) {
+  d <- diff(as.numeric(crs))
+  ((d + 180) %% 360) - 180
+}
+
+# Sætter en højdegrænse for at fjerne helikoptere og privatfly
+fly_high <- list()
+for (i in 1:length(fly_data)) {
+  fly <- fly_data[[i]]
+  if (max(as.numeric(fly[, "alt"]), na.rm = TRUE) > 4500) {
+    fly_high <- c(fly_high, list(fly))
+  }
+}
+
+# Tilføj Wulfs data, så algoritmen også testes på kendte cirklende fly
+fly_all <- c(fly_high, training_lists, list(circ_fly))
+
+# Grænser for algoritmen
+breaks      <- seq(0, 360, by = 15)  # 24 intervaller på 15 grader
+min_cirkler <- 0                      # 0 = kun metode 1 bruges (antal cirkler gemmes kun til diskussion)
+
+# Kør algoritmen på hvert fly og saml resultatet i én dataframe
+# Kun drejninger over Nordsøen tæller for VORES fly (fly_high).
+# Wulfs træningsfly er fra andre områder, så for dem bruges hele ruten.
+kun_nordsoeen <- TRUE
+kilde <- c(rep("Egne fly", length(fly_high)),
+           rep("Wulf", length(training_lists) + 1))
+
+dataframe <- do.call(rbind, Map(function(fly, kilde_fly) {
+  crs <- as.numeric(fly$crs)
+  sd_hele_ruten <- sd(crs, na.rm = TRUE)
+  if (kun_nordsoeen && kilde_fly == "Egne fly") {
+    inde <- as.numeric(fly$lat) >= lamin & as.numeric(fly$lat) <= lamax &
+      as.numeric(fly$lng) >= lomin & as.numeric(fly$lng) <= lomax
+    crs <- crs[which(inde)]
+    if (length(crs) < 3) crs <- c(0, 0, 0)   # flyet var næsten ikke over Nordsøen
+  }
+  
+  # Metode 1: har kursen været i alle 24 intervaller på 15 grader?
+  interval_check <- table(cut(crs, breaks = breaks, right = FALSE))
+  antal_retninger <- sum(interval_check > 0)          # hvor mange af de 24 retninger flyet har fløjet i
+  alle_retninger  <- antal_retninger == 24
+  
+  # Metode 2: hvor mange hele cirkler har flyet drejet?
+  antal_cirkler <- abs(sum(kurs_aendring(crs), na.rm = TRUE)) / 360
+  
+  data.frame(icao           = fly$icao24[1],
+             sdcourse       = sd_hele_ruten,
+             antal_retninger = antal_retninger,
+             antal_cirkler  = round(antal_cirkler, 1),
+             alle_retninger = alle_retninger,
+             lmres          = summary(lm(lat ~ lng + crs + alt, data = fly))$r.squared,
+             kilde          = kilde_fly,
+             isOff          = as.numeric(alle_retninger & antal_cirkler >= min_cirkler))
+}, fly_all, kilde))
+
+# Mistænkelige fly
+sus_fly    <- dataframe[dataframe$isOff == 1, ]
+fly_circle <- fly_all[dataframe$isOff == 1]
+sus_fly
+saveRDS(sus_fly, "fly_fuckery/sus_fly.rds")
+
+
+# =====================================================================
+# Plots af algoritmens resultat
+# =====================================================================
+
+dataframe$type <- ifelse(dataframe$isOff == 1, "Cirklende", "Normal")
+farver_type <- c("Cirklende" = moerk_lilla, "Normal" = graa)
+
+# Standardafvigelse på kursen
+p_sd <- ggplot(dataframe, aes(x = sdcourse, y = kilde, colour = type)) +
+  geom_jitter(height = 0.15, size = 2.5, alpha = 0.75) +
+  scale_colour_manual(values = farver_type, name = NULL) +
+  labs(title = "Standardafvigelse p\u00e5 kursen kan ikke skille flyene ad",
+       subtitle = "Normale fly mod nord f\u00e5r h\u00f8j spredning, fordi kursen hopper mellem 359 og 0 grader",
+       x = "Standardafvigelse p\u00e5 kurs (grader)", y = NULL) +
+  tema_fly + theme(legend.position = "top")
+p_sd
+
+# Algoritmen: hvor mange af de 24 retninger har flyet fløjet i?
+p_retninger <- ggplot(dataframe, aes(x = antal_retninger, y = kilde, colour = type)) +
+  annotate("rect", xmin = 23.5, xmax = 24.5, ymin = -Inf, ymax = Inf, fill = lys_lilla, alpha = 0.5) +
+  geom_jitter(height = 0.15, width = 0.15, size = 2.8, alpha = 0.8) +
+  scale_colour_manual(values = farver_type, name = NULL) +
+  scale_x_continuous(limits = c(0, 24.5), breaks = c(0, 6, 12, 18, 24)) +
+  labs(title = "Algoritmen: har flyet fl\u00f8jet i alle 24 retninger?",
+       subtitle = "Kursen deles i 24 intervaller p\u00e5 15 grader. Fly i det lilla felt markeres som cirklende.",
+       x = "Antal retninger flyet har fl\u00f8jet i (ud af 24)", y = NULL) +
+  tema_fly + theme(legend.position = "top")
+p_retninger
+
+# Resultat: hvor mange fly bliver fundet fra hver kilde?
+table(dataframe$kilde, dataframe$type)
+
+# Kort over hvert mistænkeligt fly
+for (i in seq_along(fly_circle)) print(kort_fly(fly_circle[[i]]))
 
 
 # =====================================================================
@@ -250,3 +563,6 @@ email <- compose_email(
 # use diff to track change of fortegn
 
 # run R script from terminal
+
+
+
