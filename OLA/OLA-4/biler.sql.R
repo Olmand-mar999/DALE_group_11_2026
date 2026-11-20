@@ -145,3 +145,5 @@ solgte_priser <- data.frame(
 
 dbWriteTable(wc, "bil_priser", solgte_priser, append = T)
 dbWriteTable(wc, "bil_priser", priser, append = T)
+
+getwd()
