@@ -8,6 +8,10 @@ library(stringr)
 library(leaflet)
 source("util.R")
 
+library(ggplot2)
+library(dplyr)
+library(leaflet)
+
 # hent flydata eksempel og gemte rds fly
 circ_fly <- readRDS("fly_fuckery/circMT.rds")
 circ_fly$sd <- sd(circ_fly$crs)
@@ -160,9 +164,6 @@ for (i in 1:length(fly_all)) {
   }
 }
 
-MapPlot(fly_circle[[1]])
-fly_circle[[1]]
-
 # Lav dataframe der indeholder alle icaonavne, deres standardafvigelse,
 # og om hvorvidt de cirkulerer
 dataframe <- data.frame(icao=NULL, sdcourse=NULL)
@@ -218,10 +219,6 @@ email <- compose_email(
 # PLOTS (erstatter Plot_lat_lng, Plot_time_crs, Plot_time_alt, MapPlot)
 # Indsæt efter afsnit 2 (når flight_example og circ_fly er indlæst)
 # =====================================================================
-
-library(ggplot2)
-library(dplyr)
-library(leaflet)
 
 moerk_lilla <- "#5b2a9e"
 lys_lilla   <- "#d9c8f5"
@@ -393,22 +390,22 @@ p_lande <- ggplot(lande, aes(x = antal, y = reorder(land, antal))) +
        subtitle = paste("De", nrow(lande), "lande med flest fly i luftrummet"),
        x = "Antal fly", y = NULL) +
   tema_fly + theme(panel.grid.major.y = element_blank())
-p_lande
+#p_lande
 
 # ---- Opgave 3.2: plots for nyt fly ----
 p_rute_normal   <- plot_rute(flight_example, "Normalt fly");                                 p_rute_normal
 p_kurs_normal   <- plot_kurs(flight_example, "Normalt fly: kursen er næsten konstant");  p_kurs_normal
 p_hoejde_normal <- plot_hoejde(flight_example, "Normalt fly");                               p_hoejde_normal
-kort_fly(flight_example, farve = graa)
+#kort_fly(flight_example, farve = graa)
 
 # ---- Opgave 3.2: plots for cirklende fly ----
 p_rute_cirkel   <- plot_rute(circ_fly, "Cirklende fly");                                     p_rute_cirkel
 p_kurs_cirkel   <- plot_kurs(circ_fly, "Cirklende fly: kursen løber hele vejen rundt"); p_kurs_cirkel
 p_hoejde_cirkel <- plot_hoejde(circ_fly, "Cirklende fly");                                   p_hoejde_cirkel
-kort_fly(circ_fly)
+#kort_fly(circ_fly)
 
 # Begge fly på samme kort
-kort_sammenlign(flight_example, circ_fly)
+#kort_sammenlign(flight_example, circ_fly)
 
 # Kompas for hvert fly og side om side
 p_kompas_normal <- plot_kompas(flight_example, "Kompas: normalt fly", farve = graa); p_kompas_normal
@@ -481,8 +478,8 @@ dataframe <- do.call(rbind, Map(function(fly, kilde_fly) {
 # Mistænkelige fly
 sus_fly    <- dataframe[dataframe$isOff == 1, ]
 fly_circle <- fly_all[dataframe$isOff == 1]
-sus_fly
-saveRDS(sus_fly, "fly_fuckery/sus_fly.rds")
+#sus_fly
+#saveRDS(sus_fly, "fly_fuckery/sus_fly.rds")
 
 
 # =====================================================================
@@ -500,7 +497,7 @@ p_sd <- ggplot(dataframe, aes(x = sdcourse, y = kilde, colour = type)) +
        subtitle = "Normale fly mod nord f\u00e5r h\u00f8j spredning, fordi kursen hopper mellem 359 og 0 grader",
        x = "Standardafvigelse p\u00e5 kurs (grader)", y = NULL) +
   tema_fly + theme(legend.position = "top")
-p_sd
+#p_sd
 
 # Algoritmen: hvor mange af de 24 retninger har flyet fløjet i?
 p_retninger <- ggplot(dataframe, aes(x = antal_retninger, y = kilde, colour = type)) +
@@ -512,13 +509,13 @@ p_retninger <- ggplot(dataframe, aes(x = antal_retninger, y = kilde, colour = ty
        subtitle = "Kursen deles i 24 intervaller p\u00e5 15 grader. Fly i det lilla felt markeres som cirklende.",
        x = "Antal retninger flyet har fl\u00f8jet i (ud af 24)", y = NULL) +
   tema_fly + theme(legend.position = "top")
-p_retninger
+#p_retninger
 
 # Resultat: hvor mange fly bliver fundet fra hver kilde?
-table(dataframe$kilde, dataframe$type)
+#table(dataframe$kilde, dataframe$type)
 
 # Kort over hvert mistænkeligt fly
-for (i in seq_along(fly_circle)) print(kort_fly(fly_circle[[i]]))
+#for (i in seq_along(fly_circle)) print(kort_fly(fly_circle[[i]]))
 
 
 # =====================================================================
