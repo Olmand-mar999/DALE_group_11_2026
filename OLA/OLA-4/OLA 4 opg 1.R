@@ -81,8 +81,6 @@ bilbasen_df$raekkevidde <- ifelse(grepl("[0-9]+ km rækkevidde", bilbasen_df$det
 
 #saveRDS(bilbasen_df, "html_fuckery/bilbasen.rds")
 
-print(alle_sider_fra_Bilbasen_VW[[6]])
-
 # ============================================================
 # 1. SCRAPE autoscout24.de
 # ============================================================
@@ -187,6 +185,75 @@ sammenligning <- merge(bb_gns, as_gns, by = c("model", "aargang"),
 sammenligning$forskel_kr  <- round(sammenligning$pris_bilbasen - sammenligning$pris_as24)
 sammenligning$forskel_pct <- round(100 * sammenligning$forskel_kr / sammenligning$pris_as24, 1)
 
+# ============================================================
+# 3. Hentning af tilbud fra power.dk/kampagne/aktuelt/
+# ============================================================
+
+power_sesh <- ChromoteSession$new()
+power_sesh$Page$navigate("https://www.power.dk/kampagne/aktuelt/")
+Sys.sleep(8)
+
+# Henter alt dataen - gør det via et api kald og java script
+raa <- power_sesh$Runtime$evaluate("
+(async () => {
+  const urls = [...new Set(performance.getEntriesByType('resource')
+    .map(e => e.name)                                        // keep only the URL of each request
+    .filter(n => n.includes('/api/v2/products?ids=')))];     // keep only the product API calls
+  const svar = [];
+  for (const u of urls) svar.push(await (await fetch(u)).text());  // fetch each reply as text
+  return JSON.stringify({urls: urls, svar: svar});
+})()", awaitPromise = TRUE, returnByValue = TRUE, timeout = 60)$result$value
+
+power_sesh$close()
+#saveRDS(raa, "html_fuckery/power_data.rds")
+
+# kategori_tjek indeholder alle kategori navne
+res  <- jsonlite::fromJSON(raa)
+kategori_tjek <- lapply(res$svar, jsonlite::fromJSON)     # one data frame per API call
+
+# cols indeholder alle vores valgte kategorinavne
+cols <- c("productId","title","price","previousPrice","categoryName","url")
+dele <- lapply(res$svar, function(s) { d <- jsonlite::fromJSON(s); if (length(d)) d[, cols] })
+power_df <- do.call(rbind, dele)
+power_df <- power_df[!duplicated(power_df$productId), ]
+
+
+# ============================================================
+# 4. Forsøgt webscraping af power
+# ============================================================
+
+base <- "https://www.power.dk/kampagne/aktuelt/"
+browser_sesh <- ChromoteSession$new()
+browser_sesh$Page$navigate(base)
+
+Sys.sleep(10)
+
+data <- browser_sesh$Runtime$evaluate("document.documentElement.outerHTML")$result$value
+
+browser_sesh$close()
+
+side <- read_html(data)
+
+# Undersøg om klassen nu findes
+str_detect(data, "product-item-arguments-container")
+str_detect(data, "savings-label power-yellow-500 mobile-variant")
+str_detect(data, "price-content h-100-p")
+
+# sammenlign med om klasser kan findes for biler
+biler <- readRDS("html_fuckery/bilbasen_alle_sider.rds")[1]
+str_detect(biler, "Listing_makeModel__7yqgs")
+
+# h2, h3 og h4 er alle underoverskrifter
+side %>%
+  html_elements("h2, h3, h4") %>%
+  html_text2()
+
+# Den sidste underoverskrift den henter, er verificer du er et menneske
+
+
+# ============================================================
+# 4. plots
+# ============================================================
 library(ggplot2)
 #Plot 1
 
@@ -221,7 +288,8 @@ p <- ggplot(plot_data, aes(x = forskel_pct, y = reorder(navn, forskel_pct), fill
   labs(title = "Brugte VW-elbiler er typisk dyrere i Danmark end i Tyskland",
        subtitle = paste0("Gns. prisforskel pr. model, vægtet efter antal biler. Tysk pris inkl. beregnet dansk afgift.\n",
                          "Kun model/årgang med mindst ", min_antal, " biler på begge sider."),
-       x = "Prisforskel, Bilbasen vs. AutoScout24", y = NULL) +
+       x = "Prisforskel, Bilbasen vs. AutoScout24", y = NULL,
+       caption = "Kilde: Bilbasen og AutoScout24. Egne beregninger.") +
   theme_minimal(base_size = 12) +
   theme(plot.title = element_text(face = "bold"),
         axis.text.y = element_text(face = "bold", colour = "black"),
@@ -230,7 +298,7 @@ p <- ggplot(plot_data, aes(x = forskel_pct, y = reorder(navn, forskel_pct), fill
         legend.position = "top")
 
 p
-ggsave("prisforskel.png", p, width = 10, height = 5.5, dpi = 300, bg = "white")
+#ggsave("prisforskel.png", p, width = 10, height = 5.5, dpi = 300, bg = "white")
 
 #PLOT 2
 
@@ -278,14 +346,15 @@ p2 <- ggplot(punkter, aes(x = km, y = pris, colour = kilde)) +
   labs(title = "Samme bil koster ca. 24.000 kr. mere i Danmark",
        subtitle = paste0("VW ID.3, årgang ", valgt_aargang,
                          ". Punkter = biler, linjer = regressionsmodellen."),
-       x = "Kilometertal", y = "Pris") +
+       x = "Kilometertal", y = "Pris",
+       caption = "Kilde: Bilbasen og AutoScout24. Egne beregninger.")) +
   theme_minimal(base_size = 12) +
   theme(plot.title = element_text(face = "bold"),
         panel.grid.minor = element_blank(),
         legend.position = "top")
 
 p2
-ggsave("regression_id3.png", p2, width = 10, height = 6, dpi = 300, bg = "white")
+#ggsave("regression_id3.png", p2, width = 10, height = 6, dpi = 300, bg = "white")
 
 #plot 3
 
@@ -358,74 +427,11 @@ p3 <- ggplot(scenarier, aes(x = indfas, y = merpris_dk)) +
                          percent(andel_0_afgift, accuracy = 1),
                          " af de tyske biler ligger under bundfradraget og betaler derfor 0 kr. i afgift."),
        x = "Indfasningsprocent for registreringsafgift på elbiler",
-       y = "Merpris i Danmark") +
+       y = "Merpris i Danmark",
+       caption = "Kilde: Bilbasen og AutoScout24. Egne beregninger.") +
   theme_minimal(base_size = 12) +
   theme(plot.title = element_text(face = "bold"),
         panel.grid.minor = element_blank())
 
 p3
-ggsave("figur8_afgift.png", p3, width = 10, height = 6, dpi = 300, bg = "white")
-# ============================================================
-# 3. Hentning af tilbud fra power.dk/kampagne/aktuelt/
-# ============================================================
-
-power_sesh <- ChromoteSession$new()
-power_sesh$Page$navigate("https://www.power.dk/kampagne/aktuelt/")
-Sys.sleep(8)
-
-# Henter alt dataen - gør det via et api kald og java script
-raa <- powersesh$Runtime$evaluate("
-(async () => {
-  const urls = [...new Set(performance.getEntriesByType('resource')
-    .map(e => e.name)                                        // keep only the URL of each request
-    .filter(n => n.includes('/api/v2/products?ids=')))];     // keep only the product API calls
-  const svar = [];
-  for (const u of urls) svar.push(await (await fetch(u)).text());  // fetch each reply as text
-  return JSON.stringify({urls: urls, svar: svar});
-})()", awaitPromise = TRUE, returnByValue = TRUE, timeout = 60)$result$value
-
-power_sesh$close()
-#saveRDS(raa, "html_fuckery/power_data.rds")
-
-# kategori_tjek indeholder alle kategori navne
-res  <- jsonlite::fromJSON(raa)
-kategori_tjek <- lapply(res$svar, jsonlite::fromJSON)     # one data frame per API call
-
-# cols indeholder alle vores valgte kategorinavne
-cols <- c("productId","title","price","previousPrice","categoryName","url")
-dele <- lapply(res$svar, function(s) { d <- jsonlite::fromJSON(s); if (length(d)) d[, cols] })
-power_df <- do.call(rbind, dele)
-power_df <- power_df[!duplicated(power_df$productId), ]
-
-
-# ============================================================
-# 4. Forsøgt webscraping af power
-# ============================================================
-
-base <- "https://www.power.dk/kampagne/aktuelt/"
-browser_sesh <- ChromoteSession$new()
-browser_sesh$Page$navigate(base)
-
-Sys.sleep(10)
-
-data <- browser_sesh$Runtime$evaluate("document.documentElement.outerHTML")$result$value
-
-browser_sesh$close()
-
-side <- read_html(data)
-
-# Undersøg om klassen nu findes
-str_detect(data, "product-item-arguments-container")
-str_detect(data, "savings-label power-yellow-500 mobile-variant")
-str_detect(data, "price-content h-100-p")
-
-# sammenlign med om klasser kan findes for biler
-biler <- readRDS("html_fuckery/bilbasen_alle_sider.rds")[1]
-str_detect(biler, "Listing_makeModel__7yqgs")
-
-# h2, h3 og h4 er alle underoverskrifter
-side %>%
-  html_elements("h2, h3, h4") %>%
-  html_text2()
-
-# Den sidste underoverskrift den henter, er verificer du er et menneske
+#ggsave("figur8_afgift.png", p3, width = 10, height = 6, dpi = 300, bg = "white")

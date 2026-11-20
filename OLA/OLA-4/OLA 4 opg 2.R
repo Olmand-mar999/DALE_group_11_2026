@@ -139,11 +139,10 @@ priser <- data.frame(
 solgte_priser <- data.frame(
   car_id     = solgte_biler$id,
   pris       = solgte_biler$pris,
-  scraped_at = solgte_biler$scrapedate,
+  scraped_at = solgte_biler$scrapedate + 1,
   sold       = 1
 )
 
 dbWriteTable(wc, "bil_priser", solgte_priser, append = T)
 dbWriteTable(wc, "bil_priser", priser, append = T)
 
-getwd()
