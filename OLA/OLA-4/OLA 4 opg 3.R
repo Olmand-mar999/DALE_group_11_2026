@@ -271,7 +271,7 @@ plot_rute <- function(fly, titel, antal_pile = 12) {
     scale_colour_gradient(low = lys_lilla, high = moerk_lilla, name = "Minutter") +
     coord_quickmap() +
     labs(title = titel, subtitle = "Pilene viser flyveretningen. Trekant = start, firkant = slut",
-         x = "L\u00e6ngdegrad", y = "Breddegrad") +
+         x = "L\u00e6ngdegrad", y = "Breddegrad", caption = "Kilde: OpenSky og egne beregninger.") +
     tema_fly
 }
 
@@ -285,7 +285,7 @@ plot_kompas <- function(fly, titel, farve = moerk_lilla) {
     scale_x_continuous(limits = c(0, 360), breaks = c(0, 45, 90, 135, 180, 225, 270, 315),
                        labels = c("N", "N\u00d8", "\u00d8", "S\u00d8", "S", "SV", "V", "NV")) +
     labs(title = titel, subtitle = "S\u00f8jlerne viser antal m\u00e5linger i hver retning (15 grader)",
-         x = NULL, y = NULL) +
+         x = NULL, y = NULL, caption = "Kilde: OpenSky og egne beregninger.") +
     tema_fly +
     theme(axis.text.y = element_blank(),
           axis.text.x = element_text(size = 12, face = "bold", colour = "black"))
@@ -311,7 +311,7 @@ plot_kompas_sammenlign <- function(normal, cirkel) {
     scale_y_continuous(limits = c(0, 1)) +
     labs(title = "Kompas: hvilke retninger har flyet fl\u00f8jet i?",
          subtitle = "Et normalt fly holder \u00e9n retning. Et cirklende fly flyver i alle retninger.",
-         x = NULL, y = NULL) +
+         x = NULL, y = NULL, caption = "Kilde: OpenSky og egne beregninger.") +
     tema_fly +
     theme(axis.text.y = element_blank(),
           axis.text.x = element_text(size = 11, face = "bold", colour = "black"),
@@ -325,7 +325,8 @@ plot_kurs <- function(fly, titel) {
     geom_point(colour = moerk_lilla, size = 1.5, alpha = 0.8) +
     scale_y_continuous(limits = c(0, 360), breaks = seq(0, 360, 90),
                        labels = c("N", "Ø", "S", "V", "N")) +
-    labs(title = titel, x = "Minutter siden første måling", y = "Kurs") +
+    labs(title = titel, x = "Minutter siden første måling", y = "Kurs", 
+         caption = "Kilde: OpenSky og egne beregninger.") +
     tema_fly
 }
 
@@ -337,7 +338,8 @@ plot_hoejde <- function(fly, titel) {
     geom_line(colour = moerk_lilla, linewidth = 1.1) +
     scale_y_continuous(labels = function(x) paste(format(x, big.mark = ".", decimal.mark = ",",
                                                          scientific = FALSE), "m")) +
-    labs(title = titel, x = "Minutter siden første måling", y = "Højde") +
+    labs(title = titel, x = "Minutter siden første måling", y = "Højde",
+         caption = "Kilde: OpenSky og egne beregninger.") +
     tema_fly
 }
 
@@ -384,7 +386,7 @@ kort_sammenlign <- function(normal, cirkel) {
 }
 
 # ---- Opgave 3.1: fly fordelt på lande ----
-lande <- as.data.frame(table(currentDF$origin_country))
+lande <- as.data.frame(table(in_air$origin_country))
 colnames(lande) <- c("land", "antal")
 lande <- head(lande[order(-lande$antal), ], 15)
 
@@ -394,7 +396,8 @@ p_lande <- ggplot(lande, aes(x = antal, y = reorder(land, antal))) +
   scale_x_continuous(expand = expansion(mult = c(0, 0.1))) +
   labs(title = "Fly over Nordsøen fordelt på land",
        subtitle = paste("De", nrow(lande), "lande med flest fly i luftrummet"),
-       x = "Antal fly", y = NULL) +
+       x = "Antal fly", y = NULL, 
+       caption = "Kilde: OpenSky.") +
   tema_fly + theme(panel.grid.major.y = element_blank())
 #p_lande
 
@@ -432,7 +435,8 @@ p_sd <- ggplot(dataframe, aes(x = sdcourse, y = kilde, colour = type)) +
   scale_colour_manual(values = farver_type, name = NULL) +
   labs(title = "Standardafvigelse p\u00e5 kursen kan ikke skille flyene ad",
        subtitle = "Normale fly mod nord f\u00e5r h\u00f8j spredning, fordi kursen hopper mellem 359 og 0 grader",
-       x = "Standardafvigelse p\u00e5 kurs (grader)", y = NULL) +
+       x = "Standardafvigelse p\u00e5 kurs (grader)", y = NULL,
+       caption = "Kilde: OpenSky + egne beregninger.") +
   tema_fly + theme(legend.position = "top")
 #p_sd
 
@@ -444,7 +448,8 @@ p_retninger <- ggplot(dataframe, aes(x = antal_retninger, y = kilde, colour = ty
   scale_x_continuous(limits = c(0, 24.5), breaks = c(0, 6, 12, 18, 24)) +
   labs(title = "Algoritmen: har flyet fl\u00f8jet i alle 24 retninger?",
        subtitle = "Kursen deles i 24 intervaller p\u00e5 15 grader. Fly i det lilla felt markeres som cirklende.",
-       x = "Antal retninger flyet har fl\u00f8jet i (ud af 24)", y = NULL) +
+       x = "Antal retninger flyet har fl\u00f8jet i (ud af 24)", y = NULL,
+       caption = "Kilde: OpenSky + egne beregninger.") +
   tema_fly + theme(legend.position = "top")
 #p_retninger
 
