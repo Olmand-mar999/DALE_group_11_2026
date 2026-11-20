@@ -194,7 +194,7 @@ power_sesh$Page$navigate("https://www.power.dk/kampagne/aktuelt/")
 Sys.sleep(8)
 
 # Henter alt dataen - gør det via et api kald og java script
-raa <- powersesh$Runtime$evaluate("
+raa <- power_sesh$Runtime$evaluate("
 (async () => {
   const urls = [...new Set(performance.getEntriesByType('resource')
     .map(e => e.name)                                        // keep only the URL of each request
