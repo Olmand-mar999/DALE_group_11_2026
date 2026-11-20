@@ -2,13 +2,13 @@ library(dplyr)
 library(RMariaDB)
 library(DBI)
 
-# connect til world data i sql
-
-#Sys.setenv(localpw = "")
-
 # ============================================================
 # Indsæt data i sql tabel
 # ============================================================
+
+# connect til world data i sql
+
+#Sys.setenv(localpw = "")
 
 wc <- dbConnect(MariaDB(),
                 host = "localhost",
@@ -18,6 +18,7 @@ wc <- dbConnect(MariaDB(),
                 port = "3306")
 
 bilbasen <- readRDS("html_fuckery/bilbasen.rds")
+
 # fjern første 2 rækker. De bruges som nye biler i 2.3
 bilbasen <- bilbasen[3:nrow(bilbasen),]
 
@@ -56,13 +57,16 @@ dbWriteTable(wc, "bil_priser", priser, append = T)
 
 simuleret <- readRDS("html_fuckery/bilbasen.rds")
 
+# ændr scrapedate til næste dag
+simuleret$scrapedate <- simuleret$scrapedate + 1
+
 # slet 5 rækker
 simuleret <- simuleret[-c(3:7),]
 
 # ændr pris
 simuleret$pris[9:11] <- simuleret$pris[9:11] + 10000
 
-#saveRDS(simuleret, "html_fuckery/simuleret.rds")
+saveRDS(simuleret, "html_fuckery/simuleret.rds")
 simuleret_færdig <- readRDS("html_fuckery/simuleret.rds")
 
 # ============================================================
@@ -70,27 +74,43 @@ simuleret_færdig <- readRDS("html_fuckery/simuleret.rds")
 # ============================================================
 
 library(dplyr)
-unikke_rækker <- bind_rows(
-  anti_join(simuleret_færdig, bilbasen),
-  anti_join(bilbasen, simuleret_færdig)
-  ) %>%
+
+solgte_biler <- anti_join(bilbasen, simuleret_færdig, by = "id")
+
+kolonner <- c("id", "model", "logo", "lokation", "aargang",
+              "km", "raekkevidde", "link", "pris")
+
+nye_priser <- bind_rows(
+  anti_join(simuleret_færdig, bilbasen, by = c(
+    "id", "model", "logo", "lokation", "aargang",
+    "km", "raekkevidde", "link", "pris"
+  )),
+  anti_join(bilbasen, simuleret_færdig, by = c(
+    "id", "model", "logo", "lokation", "aargang",
+    "km", "raekkevidde", "link", "pris"
+  ))
+) %>%
+  anti_join(solgte_biler, by = "id") %>%
   group_by(id) %>%
-  slice_max(order_by = pris, n = 1) %>%
-  ungroup()
+  slice_max(order_by = pris, n = 1)
+
+korrekt_scrape <- simuleret_færdig$scrapedate[1]
+
+nye_priser$scrapedate <- korrekt_scrape
 
 fmap <- dbGetQuery(wc, "
   SELECT forhandler_id, logo_link FROM forhandler
 ")
 
-unikke_rækker$forhandler_id <-
-  fmap$forhandler_id[match(unikke_rækker$logo, fmap$logo_link)]
+nye_priser$forhandler_id <-
+  fmap$forhandler_id[match(nye_priser$logo, fmap$logo_link)]
 
 eksisterende_biler <- dbGetQuery(wc, "
   SELECT car_id FROM biler
 ")
 
 nye_biler <- anti_join(
-  unikke_rækker,
+  nye_priser,
   eksisterende_biler,
   by = c("id" = "car_id")
 )
@@ -109,10 +129,19 @@ biler <- data.frame(
 dbWriteTable(wc, "biler", biler, append = TRUE)
 
 priser <- data.frame(
-  car_id     = unikke_rækker$id,
-  pris       = unikke_rækker$pris,
-  scraped_at = unikke_rækker$scrapedate
+  car_id     = nye_priser$id,
+  pris       = nye_priser$pris,
+  scraped_at = nye_priser$scrapedate,
+  sold       = 0
 )
 
-dbWriteTable(wc, "bil_priser", priser, append = T)
 
+solgte_priser <- data.frame(
+  car_id     = solgte_biler$id,
+  pris       = solgte_biler$pris,
+  scraped_at = solgte_biler$scrapedate,
+  sold       = 1
+)
+
+dbWriteTable(wc, "bil_priser", solgte_priser, append = T)
+dbWriteTable(wc, "bil_priser", priser, append = T)
