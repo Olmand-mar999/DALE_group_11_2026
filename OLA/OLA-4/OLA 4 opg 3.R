@@ -690,3 +690,21 @@ p_radio_hoejde <- ggplot(radio_plot, aes(x = tid, y = as.numeric(alt))) +
   theme(plot.title = element_text(face = "bold"), panel.grid.minor = element_blank())
 p_radio_hoejde
 ggsave("plot_radio_hoejde.png", p_radio_hoejde, width = 9, height = 5, dpi = 300, bg = "white")
+
+
+# Installér én gang (kan tage nogle minutter)
+install.packages(c("remotes", "av"))
+remotes::install_github("bnosac/audio.whisper")
+
+library(av)
+library(audio.whisper)
+
+# Klip 10:30:00-10:34:00 ud og konvertér til det format, Whisper kræver (16 kHz, mono wav)
+av_audio_convert("fly_fuckery/london_1030Z.mp3", "fly_fuckery/klip.wav",
+                 channels = 1, sample_rate = 16000,
+                 start_time = 0, total_time = 240)
+
+# Hent modellen og transskribér (første gang downloades modellen automatisk)
+model <- whisper("small.en")
+trans <- predict(model, newdata = "fly_fuckery/klip.wav", language = "en")
+trans$data[, c("from", "to", "text")]
