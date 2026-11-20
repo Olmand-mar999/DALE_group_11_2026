@@ -147,6 +147,7 @@ fly_all <- c(fly_high, training_lists, list(circ_fly))
 # Find ud af om flyende cirkulerer. Gem icao navnene på dem der gør
 fly_circle <- list()
 icao_off <- data.frame(icao = NULL)
+retninger <- c()
 breaks <- seq(0, 360, by = 15) # bruges til at tjekke om et fly cirkulerer
 
 for (i in 1:length(fly_all)) {
@@ -155,9 +156,11 @@ for (i in 1:length(fly_all)) {
   interval_check <- table(cut(
     fly$crs,
     breaks = breaks,
-    right = FALSE # inkluderer 0 i første interval
+    right = FALSE, # inkluderer 0 i første interval
     # Så første interval kører fra 0-15, inkluderer 0 men ikke 15
   ))
+  antal_retninger <- sum(interval_check > 0)
+  retninger <- c(retninger, antal_retninger)
   if (all(interval_check > 0)) {
     fly_circle <- c(fly_circle, list(fly))
     icao_off <- rbind(icao_off, data.frame(icao = fly$icao24[1]))
@@ -176,6 +179,13 @@ for (i in 1:length(fly_all)){
   sdcourse <- data.frame
   dataframe <- rbind(dataframe, data)
 }
+
+dataframe$type <- ifelse(dataframe$isOff == 1, "Cirklende", "Normal")
+kilde <- c(rep("Egne fly", length(fly_high)),
+           rep("Wulf", length(training_lists) + 1))
+
+dataframe$kilde <- kilde
+dataframe$antal_retninger <- retninger
 
 sus_fly <- dataframe[dataframe$isOff == 1,]
 saveRDS(sus_fly, "fly_fuckery/sus_fly.rds")
@@ -215,10 +225,6 @@ email <- compose_email(
 #------------------------------------------------------------------------
 #PLOTS EMMA
 #------------------------------------------------------------------------
-# =====================================================================
-# PLOTS (erstatter Plot_lat_lng, Plot_time_crs, Plot_time_alt, MapPlot)
-# Indsæt efter afsnit 2 (når flight_example og circ_fly er indlæst)
-# =====================================================================
 
 moerk_lilla <- "#5b2a9e"
 lys_lilla   <- "#d9c8f5"
@@ -414,79 +420,10 @@ p_kompas        <- plot_kompas_sammenlign(flight_example, circ_fly);            
 
 
 # =====================================================================
-# 5. Find alle cirkulerende fly
-# =====================================================================
-
-# Samlet drejning: hvor mange grader har flyet drejet i alt?
-# Kursen hopper fra 359 til 0 grader, så hver ændring lægges i intervallet -180 til 180.
-kurs_aendring <- function(crs) {
-  d <- diff(as.numeric(crs))
-  ((d + 180) %% 360) - 180
-}
-
-# Sætter en højdegrænse for at fjerne helikoptere og privatfly
-fly_high <- list()
-for (i in 1:length(fly_data)) {
-  fly <- fly_data[[i]]
-  if (max(as.numeric(fly[, "alt"]), na.rm = TRUE) > 4500) {
-    fly_high <- c(fly_high, list(fly))
-  }
-}
-
-# Tilføj Wulfs data, så algoritmen også testes på kendte cirklende fly
-fly_all <- c(fly_high, training_lists, list(circ_fly))
-
-# Grænser for algoritmen
-breaks      <- seq(0, 360, by = 15)  # 24 intervaller på 15 grader
-min_cirkler <- 0                      # 0 = kun metode 1 bruges (antal cirkler gemmes kun til diskussion)
-
-# Kør algoritmen på hvert fly og saml resultatet i én dataframe
-# Kun drejninger over Nordsøen tæller for VORES fly (fly_high).
-# Wulfs træningsfly er fra andre områder, så for dem bruges hele ruten.
-kun_nordsoeen <- TRUE
-kilde <- c(rep("Egne fly", length(fly_high)),
-           rep("Wulf", length(training_lists) + 1))
-
-dataframe <- do.call(rbind, Map(function(fly, kilde_fly) {
-  crs <- as.numeric(fly$crs)
-  sd_hele_ruten <- sd(crs, na.rm = TRUE)
-  if (kun_nordsoeen && kilde_fly == "Egne fly") {
-    inde <- as.numeric(fly$lat) >= lamin & as.numeric(fly$lat) <= lamax &
-      as.numeric(fly$lng) >= lomin & as.numeric(fly$lng) <= lomax
-    crs <- crs[which(inde)]
-    if (length(crs) < 3) crs <- c(0, 0, 0)   # flyet var næsten ikke over Nordsøen
-  }
-  
-  # Metode 1: har kursen været i alle 24 intervaller på 15 grader?
-  interval_check <- table(cut(crs, breaks = breaks, right = FALSE))
-  antal_retninger <- sum(interval_check > 0)          # hvor mange af de 24 retninger flyet har fløjet i
-  alle_retninger  <- antal_retninger == 24
-  
-  # Metode 2: hvor mange hele cirkler har flyet drejet?
-  antal_cirkler <- abs(sum(kurs_aendring(crs), na.rm = TRUE)) / 360
-  
-  data.frame(icao           = fly$icao24[1],
-             sdcourse       = sd_hele_ruten,
-             antal_retninger = antal_retninger,
-             antal_cirkler  = round(antal_cirkler, 1),
-             alle_retninger = alle_retninger,
-             lmres          = summary(lm(lat ~ lng + crs + alt, data = fly))$r.squared,
-             kilde          = kilde_fly,
-             isOff          = as.numeric(alle_retninger & antal_cirkler >= min_cirkler))
-}, fly_all, kilde))
-
-# Mistænkelige fly
-sus_fly    <- dataframe[dataframe$isOff == 1, ]
-fly_circle <- fly_all[dataframe$isOff == 1]
-#sus_fly
-#saveRDS(sus_fly, "fly_fuckery/sus_fly.rds")
-
-
-# =====================================================================
 # Plots af algoritmens resultat
 # =====================================================================
 
-dataframe$type <- ifelse(dataframe$isOff == 1, "Cirklende", "Normal")
+#dataframe$type <- ifelse(dataframe$isOff == 1, "Cirklende", "Normal")
 farver_type <- c("Cirklende" = moerk_lilla, "Normal" = graa)
 
 # Standardafvigelse på kursen
@@ -512,56 +449,10 @@ p_retninger <- ggplot(dataframe, aes(x = antal_retninger, y = kilde, colour = ty
 #p_retninger
 
 # Resultat: hvor mange fly bliver fundet fra hver kilde?
-#table(dataframe$kilde, dataframe$type)
+table(dataframe$kilde, dataframe$type)
 
 # Kort over hvert mistænkeligt fly
 #for (i in seq_along(fly_circle)) print(kort_fly(fly_circle[[i]]))
-
-
-# =====================================================================
-# Wulf kode - skal det bruges???
-# =====================================================================
-
-# Alt nedenstående er noget wulf oprindeligt har skrevet
-
-#tal <-1
-
-#MapPlot(fly_circle[[tal]])
-
-# Giver forskellen mellem hver observation i forhold til den forrige
-#rows <- nrow(fly_circle[[tal]])
-#dlatv=diff(fly_circle[[tal]]$lat)
-#dlnv=diff(fly_circle[[tal]]$lng)
-#dlatv=c(0,dlatv)
-#dlnv=c(0,dlnv)
-#fly_circle[[tal]]$dlat=dlatv
-#fly_circle[[tal]]$dlng=dlnv
-#min(abs(fly_circle[[tal]]$dlng[5:rows]))
-#min(abs(fly_circle[[tal]]$dlat[5:rows]))
-
-#ggplot(flight_example,aes(x=time,y=lat))+geom_line()+
-#  theme(axis.text.x = element_text(angle = 90))+
-#  scale_x_continuous(breaks = scales::pretty_breaks(n=35))
-
-#tal <- 15
-#min(fly_high[[tal]]$crs)
-#max(fly_high[[tal]]$crs)
-
-#MapPlot(training_lists[[1]])
-#MapPlot(fly_circle[[1]])
-# apply circmetrics
-# lm
-#cmodel=lm(lat ~ lng+crs+alt, data=flight_example)
-#summary(cmodel)
-# sd
-#csd=sd(flight_example$crs)
-
-# myOwnDetectionAlg
-# use diff to track change of fortegn
-
-# run R script from terminal
-
-
 
 # =====================================================================
 # 3.6 SIDE QUEST: Radiokommunikation (LiveATC) koblet med OpenSky-data
