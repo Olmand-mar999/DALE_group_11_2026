@@ -81,14 +81,8 @@ kolonner <- c("id", "model", "logo", "lokation", "aargang",
               "km", "raekkevidde", "link", "pris")
 
 nye_priser <- bind_rows(
-  anti_join(simuleret_færdig, bilbasen, by = c(
-    "id", "model", "logo", "lokation", "aargang",
-    "km", "raekkevidde", "link", "pris"
-  )),
-  anti_join(bilbasen, simuleret_færdig, by = c(
-    "id", "model", "logo", "lokation", "aargang",
-    "km", "raekkevidde", "link", "pris"
-  ))
+  anti_join(simuleret_færdig, bilbasen, by = kolonner),
+  anti_join(bilbasen, simuleret_færdig, by = kolonner)
 ) %>%
   anti_join(solgte_biler, by = "id") %>%
   group_by(id) %>%
