@@ -458,4 +458,7 @@ table(dataframe$kilde, dataframe$type)
 
 # Kort over hvert mistænkeligt fly
 #for (i in seq_along(fly_circle)) print(kort_fly(fly_circle[[i]]))
+<<<<<<< HEAD
 
+=======
+>>>>>>> 2510002644744333305c1c3a32965168ebce265d
