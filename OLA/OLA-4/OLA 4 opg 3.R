@@ -401,6 +401,25 @@ p_lande <- ggplot(lande, aes(x = antal, y = reorder(land, antal))) +
   tema_fly + theme(panel.grid.major.y = element_blank())
 #p_lande
 
+# Samme plot som før men i procent
+lande <- as.data.frame(table(in_air$origin_country))
+colnames(lande) <- c("land", "antal")
+
+lande$procent <- lande$antal / sum(lande$antal) * 100
+
+lande <- head(lande[order(-lande$antal), ], 15)
+
+p_lande <- ggplot(lande, aes(x = procent, y = reorder(land, procent))) +
+  geom_col(fill = moerk_lilla, width = 0.7) +
+  geom_text(aes(label = paste0(round(procent, 1), "%")),
+            hjust = -0.3, size = 3.8) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.15))) +
+  labs(title = "Fly over Nordsøen fordelt på land",
+       subtitle = paste("De", nrow(lande), "lande med flest fly i luftrummet"),
+       x = "Andel af alle fly (%)", y = NULL,
+       caption = "Kilde: OpenSky.") +
+  tema_fly + theme(panel.grid.major.y = element_blank())
+
 # ---- Opgave 3.2: plots for nyt fly ----
 p_rute_normal   <- plot_rute(flight_example, "Normalt fly");                                 p_rute_normal
 p_kurs_normal   <- plot_kurs(flight_example, "Normalt fly: kursen er næsten konstant");  p_kurs_normal
@@ -458,7 +477,4 @@ table(dataframe$kilde, dataframe$type)
 
 # Kort over hvert mistænkeligt fly
 #for (i in seq_along(fly_circle)) print(kort_fly(fly_circle[[i]]))
-<<<<<<< HEAD
 
-=======
->>>>>>> 2510002644744333305c1c3a32965168ebce265d
